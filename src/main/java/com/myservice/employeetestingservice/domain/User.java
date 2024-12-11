@@ -10,6 +10,7 @@ import org.hibernate.proxy.HibernateProxy;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -25,18 +26,14 @@ public class User implements UserDetails {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private Long id;
 
-    @NotBlank(message = "Поле не может быть пустым!")
     private String username;
 
-    @NotBlank(message = "Поле не может быть пустым!")
     private String password;
 
-    @Transient
-    @NotBlank(message = "Поле не может быть пустым!")
-    private String password2;
+    private LocalDateTime dateCreated;
+    private LocalDateTime dateChanged;
+    private String logFile;
 
-    private Long dateCreated;
-    private Long dateChanged;
     private boolean active;
     private boolean accessToSd;
 

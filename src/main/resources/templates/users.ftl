@@ -10,7 +10,7 @@
         <input type="hidden" name="_csrf" value="${_csrf.token}"/>
     </form>
     <div>
-        Hello ${userName}
+        Hello ${userName}. This is main page.
     </div>
 </body>
 </html>

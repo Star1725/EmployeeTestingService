@@ -1,16 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Login</title>
-</head>
-<body>
+<#import "parts/common.ftl" as c>
+<#import "parts/login.ftl" as l>
+<#include "parts/security.ftl">
 
-    <form action="/login" method="post">
-        <div><label>User name: <input type="text" name="username"/></label></div>
-        <div><label>Password: <input type="password" name="password"/></label></div>
-        <div><input type="submit" value="Sign in"/></div>
-        <input type="hidden" name="_csrf" value="${_csrf.token}"/>
-    </form>
-</body>
-</html>
+<@c.page>
+    <h3 class="mb-4">Авторизация</h3>
+    <@l.login "/login" false/>
+</@c.page>

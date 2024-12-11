@@ -19,11 +19,12 @@ create table usr
     administrator_id bigint,
     changed_user_id  bigint unique,
     created_user_id  bigint unique,
-    date_changed     bigint,
-    date_created     bigint,
+    date_changed     timestamp(6),
+    date_created     timestamp(6),
     id               bigint       not null,
     password         varchar(255) not null,
     username         varchar(255) not null,
+    log_file         text,
     primary key (id)
 );
 
