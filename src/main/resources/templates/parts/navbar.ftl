@@ -30,7 +30,7 @@
                 </#if>
                 <#if isAdmin>
                     <li class="nav-item">
-                        <a class="nav-link" href="/user">Список пользователей</a>
+                        <a class="nav-link" href="/users">Список пользователей</a>
                     </li>
                 </#if>
                 <#if user_SPRING_SECURITY_CONTEXT??>
