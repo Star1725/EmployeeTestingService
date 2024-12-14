@@ -10,17 +10,17 @@
     <#assign
         user_SPRING_SECURITY_CONTEXT = SPRING_SECURITY_CONTEXT.authentication.principal
         name = user_SPRING_SECURITY_CONTEXT.getUsername()
-        id = user_SPRING_SECURITY_CONTEXT.getId()
+        idUserContext = user_SPRING_SECURITY_CONTEXT.getId()
         isAdmin = user_SPRING_SECURITY_CONTEXT.isAdmin()
-        isAccessToSd = user_SPRING_SECURITY_CONTEXT.isAccessToSd()
         isMainAdmin = user_SPRING_SECURITY_CONTEXT.isMainAdmin()
-        rolesAdmin = user_SPRING_SECURITY_CONTEXT.roles
-        levelsAccessAdmin = user_SPRING_SECURITY_CONTEXT.accessLevels
+        rolesUserContext = user_SPRING_SECURITY_CONTEXT.roles
+        levelsAccessUserContext = user_SPRING_SECURITY_CONTEXT.accessLevels
+        specAccessUserContext = user_SPRING_SECURITY_CONTEXT.specAccesses
     >
 <#else>
     <#assign
         name = "unknow"
-        id = 999
+        idUserContext = 999999
         isAdmin = false
         isMainAdmin = false
     >

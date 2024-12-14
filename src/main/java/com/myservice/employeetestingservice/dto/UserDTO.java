@@ -2,6 +2,7 @@ package com.myservice.employeetestingservice.dto;
 
 import com.myservice.employeetestingservice.domain.AccessLevel;
 import com.myservice.employeetestingservice.domain.Role;
+import com.myservice.employeetestingservice.domain.SpecAccess;
 import jakarta.persistence.OrderBy;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -23,10 +24,14 @@ public class UserDTO {
     private String password2;
 
     private boolean accessToSd;
+    private String logFile;
 
     @OrderBy
     private List<Role> roles;
 
     @OrderBy
     private List<AccessLevel> accessLevels;
+
+    @OrderBy
+    private List<SpecAccess> specAccesses;
 }

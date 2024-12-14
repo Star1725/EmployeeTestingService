@@ -1,7 +1,6 @@
 package com.myservice.employeetestingservice.domain;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -35,7 +34,6 @@ public class User implements UserDetails {
     private String logFile;
 
     private boolean active;
-    private boolean accessToSd;
 
     @OneToOne
     @JoinColumn(name = "created_user_id")
@@ -80,6 +78,22 @@ public class User implements UserDetails {
     }
     public boolean isAccessToFOU(){
         return accessLevels.contains(AccessLevel.LEVEL_3);
+    }
+
+    @ElementCollection(targetClass = SpecAccess.class, fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_spec_access", joinColumns = @JoinColumn(name = "user_id"))
+    @Enumerated(EnumType.STRING)
+    @OrderBy
+    private List<SpecAccess> specAccesses;
+
+    public boolean isAccessToSD(){
+        return specAccesses.contains(SpecAccess.SPEC_ACCESS_1);
+    }
+    public boolean isAccessToDSP(){
+        return specAccesses.contains(SpecAccess.SPEC_ACCESS_2);
+    }
+    public boolean isAccessToRukSos(){
+        return specAccesses.contains(SpecAccess.SPEC_ACCESS_3);
     }
 
     @Override

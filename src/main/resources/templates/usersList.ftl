@@ -5,7 +5,7 @@
     <h3 class="mb-4">List of users</h3>
 
     <div>
-        текущий администратор - ${name}, его "id" = ${id}
+        текущий администратор - ${name}, его "id" = ${idUserContext}
     </div>
 
     <style>
@@ -50,7 +50,7 @@
             <th scope="col">Подразделение</th>
             <th scope="col">Роль</th>
             <th scope="col">Уровень доступа</th>
-            <th scope="col">Допуск к "????"</th>
+            <th scope="col">Спец. допуски</th>
             <th scope="col">Редактировать</th>
             <th scope="col">Удалить</th>
         </tr>
@@ -80,23 +80,21 @@
                 </td>
                 <!--Допуск к ???-->
                 <td>
-                    <#if user.isAccessToSd()>
-                        <i>допущен к ???</i>
-                    <#else>
-                        <i></i>
-                    </#if>
+                    <#list user.specAccesses as specAccses>
+                        <p class="custom-paragraph">${specAccses}
+                    </#list>
                 </td>
                 <!--Редактировать-->
                 <td>
-                    <#if user.id == id>
-                        <a href="/user/profile/${user.id}" class="btn btn-success disabled" aria-disabled="true">Редактировать</a>
+                    <#if user.id == idUserContext>
+                        <a href="/users/profile/${user.id}" class="btn btn-success disabled" aria-disabled="true">Редактировать</a>
                         <#else >
-                            <a href="/user/profile/${user.id}" class="btn btn-success">Редактировать</a>
+                            <a href="/users/profile/${user.id}" class="btn btn-success">Редактировать</a>
                     </#if>
                 </td>
                 <!--Удалить-->
                 <td>
-                    <#if user.id == id>
+                    <#if user.id == idUserContext>
                         <button type="button" class="btn btn-danger disabled" aria-disabled="true" data-bs-toggle="modal"
                                 data-bs-target="#deleteModal${user.id}">
                             Удалить
@@ -115,17 +113,17 @@
                 <div class="modal-dialog modal-lg">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h3 class="modal-title">Подтверждение удаления</h3>
+<#--                            <h3 class="modal-title text-center">-->
+                                Подтверждение удаления
+<#--                            </h3>-->
                             <button type="button" class="btn-close" data-bs-dismiss="modal"
                                     aria-label="Закрыть"></button>
                         </div>
-
                         <div class="modal-body">
                             <span id="confirmText">Вы хотите удалить пользователя "${user.getUsername()}"?</span>
                         </div>
-
                         <div class="modal-footer">
-                            <a href="/user/delete/${user.id}" type="button" id="yesBtn"
+                            <a href="/users/delete/${user.id}" type="button" id="yesBtn"
                                class="btn btn-danger">Да</a>
                         </div>
                     </div>

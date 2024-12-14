@@ -6,6 +6,12 @@ create table user_access
     access_levels varchar(255) check (access_levels in ('LEVEL_1', 'LEVEL_2', 'LEVEL_3'))
 );
 
+create table user_spec_access
+(
+    user_id       bigint not null,
+    spec_accesses varchar(255) check (spec_accesses in ('SPEC_ACCESS_1', 'SPEC_ACCESS_2', 'SPEC_ACCESS_3'))
+);
+
 create table user_role
 (
     user_id bigint not null,
@@ -14,7 +20,6 @@ create table user_role
 
 create table usr
 (
-    access_to_sd     boolean      not null,
     active           boolean      not null,
     administrator_id bigint,
     changed_user_id  bigint unique,
@@ -29,6 +34,8 @@ create table usr
 );
 
 alter table if exists user_access add constraint user_access__usr foreign key (user_id) references usr;
+
+alter table if exists user_spec_access add constraint user_spec_access__usr foreign key (user_id) references usr;
 
 alter table if exists user_role add constraint user_role__usr foreign key (user_id) references usr;
 

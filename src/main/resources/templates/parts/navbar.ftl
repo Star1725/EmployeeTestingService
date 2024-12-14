@@ -35,7 +35,7 @@
                 </#if>
                 <#if user_SPRING_SECURITY_CONTEXT??>
                     <li class="nav-item">
-                        <a class="nav-link" href="/user/profile/${id}">Профиль</a>
+                        <a class="nav-link" href="/users/profile/${idUserContext}">Профиль</a>
                     </li>
                 </#if>
             </ul>

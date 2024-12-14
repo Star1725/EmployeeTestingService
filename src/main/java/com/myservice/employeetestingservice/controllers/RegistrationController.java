@@ -31,11 +31,10 @@ public class RegistrationController {
         for (User user : userList) {
             if (user.getUsername().equals("MAIN_ADMIN") &&
                     passwordEncoder.matches("MAIN_ADMIN", user.getPassword())){
-                model.addAttribute("message", "При первоначальном запуске сервиса создан администратор по умолчанию (имя = MAIN_ADMIN, пароль = MAIN_ADMIN)." +
-                        " В целях безопасности измените его авторизационные данные и укажите организацию и подразделение");
+                model.addAttribute("message", Constants.DEFAULT_ADMIN_WARNING);
             }
         }
-        return "registration";
+        return Constants.REGISTRATION_PAGE;
     }
 
     @PostMapping("/registration")
@@ -44,20 +43,20 @@ public class RegistrationController {
                           Model model) throws JsonProcessingException {
         if (userDTO.getPassword() != null && !userDTO.getPassword().equals(userDTO.getPassword2())
         ){
-            model.addAttribute("passwordError", "Пароли не совпадают");
-            model.addAttribute("password2Error", "Пароли не совпадают");
-            return "registration";
+            model.addAttribute("passwordError", Constants.PASSWORD_MISMATCH);
+            model.addAttribute("password2Error", Constants.PASSWORD_MISMATCH);
+            return Constants.REGISTRATION_PAGE;
         }
 
         if (bindingResult.hasErrors()){
             Map<String, String> errorsMap = ControllerUtils.getErrorsMap(bindingResult);
             model.mergeAttributes(errorsMap);
-            return "registration";
+            return Constants.REGISTRATION_PAGE;
         }
         User user = converteToUser(userDTO);
         if (!userService.createUser(user)){
             model.addAttribute("usernameError", "Такой Пользователь уже существует!");
-            return "registration";
+            return Constants.REGISTRATION_PAGE;
         } else {
             return "redirect:/login";
         }
