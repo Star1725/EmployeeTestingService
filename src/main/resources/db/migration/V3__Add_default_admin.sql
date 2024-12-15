@@ -1,11 +1,14 @@
-insert into usr (id, username, password, active)
-    values (0, 'MAIN_ADMIN', 'MAIN_ADMIN', true);
+insert into usr (id, username, password, active, users_storage_id)
+    values (0, 'MAIN_ADMIN', 'MAIN_ADMIN', true, 0);
+
+insert into users_storage_storage_users (storage_users_id, users_storage_id)
+values (0, 0);
 
 insert into user_role (user_id, roles)
-    values (0, 'USER');
+values (0, 'USER');
 
 insert into user_role (user_id, roles)
-    values (0, 'ADMIN');
+values (0, 'ADMIN');
 
 insert into user_role (user_id, roles)
 values (0, 'MAIN_ADMIN');

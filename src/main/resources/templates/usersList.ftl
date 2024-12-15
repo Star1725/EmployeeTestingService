@@ -62,8 +62,8 @@
                 <td>${user.username}</td>
                 <!--Подразделение-->
                 <td>
-                    <#if user.division??>
-                        ${user.division.divisionName}
+                    <#if user.usersStorage??>
+                        ${user.usersStorage.usersStorageName}
                     </#if>
                 </td>
                 <!--Роли будем выводить в виде списка в строчку через запятую (#sep)-->
@@ -86,7 +86,7 @@
                 </td>
                 <!--Редактировать-->
                 <td>
-                    <#if user.id == idUserContext>
+                    <#if user.id == idUserContext || user.isMainAdmin()>
                         <a href="/users/profile/${user.id}" class="btn btn-success disabled" aria-disabled="true">Редактировать</a>
                         <#else >
                             <a href="/users/profile/${user.id}" class="btn btn-success">Редактировать</a>
@@ -94,7 +94,7 @@
                 </td>
                 <!--Удалить-->
                 <td>
-                    <#if user.id == idUserContext>
+                    <#if user.id == idUserContext || user.isMainAdmin()>
                         <button type="button" class="btn btn-danger disabled" aria-disabled="true" data-bs-toggle="modal"
                                 data-bs-target="#deleteModal${user.id}">
                             Удалить

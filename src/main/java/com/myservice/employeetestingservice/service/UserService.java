@@ -40,7 +40,7 @@ public class UserService implements UserDetailsService {
         return userRepository.findAll();
     }
 
-    public boolean createUser(User user) throws JsonProcessingException {
+    public boolean createUserFromRegistrationPage(User user) throws JsonProcessingException {
         User userFromDB = userRepository.findByUsername(user.getUsername());
         if (userFromDB != null) {
             return false;
@@ -48,29 +48,34 @@ public class UserService implements UserDetailsService {
         user.setActive(true);
         LocalDateTime timeCreated = LocalDateTime.now();
         user.setDateCreated(timeCreated);
-        //writeLogFile(user, "пользователь создан через страницу регистрации.", null);
+        writeLogFile(user, "пользователь создан через страницу регистрации.", null);
         user.setRoles(List.of(Role.USER));
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-        userRepository.save(user);
+        User userDb = userRepository.save(user);
+        userDb.setCreatedUser(userDb);
+        userRepository.save(userDb);
         return true;
     }
 
     public void deleteUser(Long id, User userAuthentication) throws JsonProcessingException {
         User userFromDB = userRepository.findById(id).get();
-        //writeLogFile(userAuthentication, "администратором удалён пользователь", userFromDB);
+        writeLogFile(userAuthentication, "администратор удалил пользователя", userFromDB);
         userRepository.deleteById(id);
     }
 
     public void writeLogFile(User userSource, String message, User userUpdated) throws JsonProcessingException {
-        LocalDateTime timeDeleted = LocalDateTime.now();
-        String logFile = userSource.getLogFile();
-        Map<LocalDateTime, String> mapLog = new ObjectMapper().readValue(logFile, new TypeReference<>() {});
-        if(userUpdated == null){
-            mapLog.put(timeDeleted, userSource.getUsername() + ": " + message);
-        } else {
-            mapLog.put(timeDeleted, userSource.getUsername() + ": " + message + " - " + userUpdated.getUsername());
+        LocalDateTime time = LocalDateTime.now();
+        String dateTime = time.toString();
+        if (userSource.getLogFile() == null || userSource.getLogFile().isEmpty()) {
+            userSource.setLogFile("{}");
         }
-        mapLog.put(timeDeleted, message + userSource.getUsername());
+        String logFile = userSource.getLogFile();
+        Map<String, String> mapLog = new ObjectMapper().readValue(logFile, new TypeReference<>() {});
+        if(userUpdated == null){
+            mapLog.put(dateTime, userSource.getUsername() + ": " + message);
+        } else {
+            mapLog.put(dateTime, userSource.getUsername() + ": " + message + " - " + userUpdated.getUsername());
+        }
         logFile = new ObjectMapper().writeValueAsString(mapLog);
         userSource.setLogFile(logFile);
     }
@@ -88,7 +93,7 @@ public class UserService implements UserDetailsService {
         return userFromDb != null;
     }
 
-    public void updateUserFromDb(User userFromDb, Map<String, String> form) {
+    public void updateUserFromDb(User userFromDb, Map<String, String> form) throws JsonProcessingException {
         userFromDb.setUsername(form.get("usernameNew"));
         if (!userFromDb.getRoles().contains(Role.MAIN_ADMIN)) {
             //получение списка всех ролей, из которых потом проверить какие установлены данному пользователю

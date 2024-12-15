@@ -31,6 +31,7 @@ public class UserController {
     private final UserService userService;
     private final ModelMapper modelMapper;
 
+    // получение списка пользователей ----------------------------------------------------------------------------------
     @PreAuthorize("hasAnyAuthority('ADMIN', 'MAIN_ADMIN')")
     @GetMapping
     public String getUserList(@AuthenticationPrincipal User userAdmin, Model model) {
@@ -85,7 +86,7 @@ public class UserController {
         }
     }
 
-    // отправка формы для обновления пользователя ----------------------------------------------------------------------
+    // отправка формы для обновления профиля пользователя --------------------------------------------------------------
     @PostMapping("profile/{id}")
     public String updateProfileUser(
 //            @Valid
@@ -120,7 +121,7 @@ public class UserController {
             model.addAttribute("passwordOldError", "Вы ввели неправильный пароль");
         }
         if (userService.loadUserByUsernameForUpdateUser(usernameNew) && !usernameNew.equals(usernameOld)){
-            model.addAttribute("usernameNewError", "Такой пользователь уже существует!");
+            model.addAttribute("usernameNewError", Constants.USERNAME_ERROR);
         }
         model.addAttribute("roles", Role.values());
         model.addAttribute("accessLevels", AccessLevel.values());
@@ -129,25 +130,28 @@ public class UserController {
         userDTO.setUsername(usernameNew);
         model.addAttribute("user", userDTO);
         if (model.asMap().keySet().stream().anyMatch(key->key.contains("Error"))){
-            return "profile";
+            return Constants.PROFILE_PAGE;
         }
-        userService.updateUserFromDb(userFromDb, form);
-        model.addAttribute("message", "Данные успешно обновлены!");
+
         long idUserAuth = userAuthentication.getId();
         long idUserDb = userFromDb.getId();
         if (idUserAuth == idUserDb){
-            //userService.writeLogFile(userFromDb, "пользователь изменил свои учётные данные", null);
+            userService.writeLogFile(userFromDb, "пользователь изменил свои данные", null);
+            userService.updateUserFromDb(userFromDb, form);
+            model.addAttribute("message", "Данные успешно обновлены!");
             if (isChangePassword){
                 return "redirect:/users/logout";
             } else {
-                return "profile";
+                return Constants.PROFILE_PAGE;
             }
         } else {
-            //userService.writeLogFile(userAuthentication, "администратор изменил учётные данные пользователя", userFromDb);
+            userService.writeLogFile(userAuthentication, "администратор изменил данные пользователя", userFromDb);
+            userService.updateUserFromDb(userFromDb, form);
             return "redirect:/users";
         }
     }
 
+    // выход -----------------------------------------------------------------------------------------------------------
     @GetMapping("/logout")
     public String logout(HttpServletRequest request){
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -156,6 +160,7 @@ public class UserController {
         }
         return "login";
     }
+//----------------------------------------------------------------------------------------------------------------------
 
     private UserDTO converteToUserDTO(User user){
         return modelMapper.map(user, UserDTO.class);
@@ -171,7 +176,7 @@ public class UserController {
         model.addAttribute("specAccesses", SpecAccess.values());
         UserDTO userDTO = modelMapper.map(user, UserDTO.class);
         model.addAttribute("user", userDTO);
-        return "profile";
+        return Constants.PROFILE_PAGE;
     }
 
 }

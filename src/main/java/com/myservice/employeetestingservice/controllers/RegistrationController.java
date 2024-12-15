@@ -47,14 +47,13 @@ public class RegistrationController {
             model.addAttribute("password2Error", Constants.PASSWORD_MISMATCH);
             return Constants.REGISTRATION_PAGE;
         }
-
         if (bindingResult.hasErrors()){
             Map<String, String> errorsMap = ControllerUtils.getErrorsMap(bindingResult);
             model.mergeAttributes(errorsMap);
             return Constants.REGISTRATION_PAGE;
         }
         User user = converteToUser(userDTO);
-        if (!userService.createUser(user)){
+        if (!userService.createUserFromRegistrationPage(user)){
             model.addAttribute("usernameError", "Такой Пользователь уже существует!");
             return Constants.REGISTRATION_PAGE;
         } else {

@@ -26,13 +26,11 @@ public class User implements UserDetails {
     private Long id;
 
     private String username;
-
     private String password;
-
     private LocalDateTime dateCreated;
     private LocalDateTime dateChanged;
     private String logFile;
-
+    private String specialNotes;
     private boolean active;
 
     @OneToOne
@@ -43,10 +41,15 @@ public class User implements UserDetails {
     @JoinColumn(name = "changed_user_id")
     private User changedUser;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "administrator_id")
     @ToString.Exclude
     private User administrator;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usersStorage_id")
+    @ToString.Exclude
+    private UsersStorage usersStorage;
 
     @ElementCollection(targetClass = Role.class, fetch = FetchType.EAGER)
     @CollectionTable(name = "user_role", joinColumns = @JoinColumn(name = "user_id"))
