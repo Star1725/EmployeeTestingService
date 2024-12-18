@@ -10,6 +10,7 @@ import com.myservice.employeetestingservice.domain.User;
 import com.myservice.employeetestingservice.repository.UserRepository;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -23,9 +24,10 @@ import java.util.stream.Collectors;
 @Service
 @Data
 @RequiredArgsConstructor
-public class UserService implements UserDetailsService {
+public class UserService implements UserDetailsService{
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final LogService logService;
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
@@ -48,7 +50,7 @@ public class UserService implements UserDetailsService {
         user.setActive(true);
         LocalDateTime timeCreated = LocalDateTime.now();
         user.setDateCreated(timeCreated);
-        writeLogFile(user, "пользователь создан через страницу регистрации.", null);
+        logService.writeUserLog(user, "пользователь создан через страницу регистрации.");
         user.setRoles(List.of(Role.USER));
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         User userDb = userRepository.save(user);
@@ -59,26 +61,31 @@ public class UserService implements UserDetailsService {
 
     public void deleteUser(Long id, User userAuthentication) throws JsonProcessingException {
         User userFromDB = userRepository.findById(id).get();
-        writeLogFile(userAuthentication, "администратор удалил пользователя", userFromDB);
+        logService.writeUserLog(userAuthentication, "администратор удалил пользователя - " + userFromDB.getUsername());
         userRepository.deleteById(id);
     }
 
-    public void writeLogFile(User userSource, String message, User userUpdated) throws JsonProcessingException {
-        LocalDateTime time = LocalDateTime.now();
-        String dateTime = time.toString();
-        if (userSource.getLogFile() == null || userSource.getLogFile().isEmpty()) {
-            userSource.setLogFile("{}");
-        }
-        String logFile = userSource.getLogFile();
-        Map<String, String> mapLog = new ObjectMapper().readValue(logFile, new TypeReference<>() {});
-        if(userUpdated == null){
-            mapLog.put(dateTime, userSource.getUsername() + ": " + message);
-        } else {
-            mapLog.put(dateTime, userSource.getUsername() + ": " + message + " - " + userUpdated.getUsername());
-        }
-        logFile = new ObjectMapper().writeValueAsString(mapLog);
-        userSource.setLogFile(logFile);
-    }
+//    public void writeLogFile(User userSource, String message) {
+//        LocalDateTime time = LocalDateTime.now();
+//        String dateTime = time.toString();
+//        if (userSource.getLogFile() == null || userSource.getLogFile().isEmpty()) {
+//            userSource.setLogFile("{}");
+//        }
+//        String logFile = userSource.getLogFile();
+//        Map<String, String> mapLog;
+//        try {
+//            mapLog = new ObjectMapper().readValue(logFile, new TypeReference<>() {});
+//        } catch (JsonProcessingException e) {
+//            throw new RuntimeException(e);
+//        }
+//        mapLog.put(dateTime, userSource.getUsername() + ": " + message);
+//        try {
+//            logFile = new ObjectMapper().writeValueAsString(mapLog);
+//        } catch (JsonProcessingException e) {
+//            throw new RuntimeException(e);
+//        }
+//        userSource.setLogFile(logFile);
+//    }
 
     public User getUserById(long id) {
         return userRepository.getReferenceById(id);
@@ -93,7 +100,7 @@ public class UserService implements UserDetailsService {
         return userFromDb != null;
     }
 
-    public void updateUserFromDb(User userFromDb, Map<String, String> form) throws JsonProcessingException {
+    public void updateUserFromDb(User userFromDb, Map<String, String> form) {
         userFromDb.setUsername(form.get("usernameNew"));
         if (!userFromDb.getRoles().contains(Role.MAIN_ADMIN)) {
             //получение списка всех ролей, из которых потом проверить какие установлены данному пользователю

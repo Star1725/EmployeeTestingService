@@ -23,7 +23,6 @@ public class UserDTO {
     @NotBlank(message = "Поле не может быть пустым!")
     private String password2;
 
-    private boolean accessToSd;
     private String logFile;
 
     @OrderBy

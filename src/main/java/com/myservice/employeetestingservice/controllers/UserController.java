@@ -6,6 +6,7 @@ import com.myservice.employeetestingservice.domain.Role;
 import com.myservice.employeetestingservice.domain.SpecAccess;
 import com.myservice.employeetestingservice.domain.User;
 import com.myservice.employeetestingservice.dto.UserDTO;
+import com.myservice.employeetestingservice.service.LogService;
 import com.myservice.employeetestingservice.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.Data;
@@ -21,8 +22,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
-
 
 @Controller
 @RequestMapping("/users")
@@ -30,6 +29,7 @@ import java.util.stream.Collectors;
 public class UserController {
     private final UserService userService;
     private final ModelMapper modelMapper;
+    private final LogService logService;
 
     // получение списка пользователей ----------------------------------------------------------------------------------
     @PreAuthorize("hasAnyAuthority('ADMIN', 'MAIN_ADMIN')")
@@ -53,6 +53,7 @@ public class UserController {
         return "usersList";
     }
 
+    // удаление пользователя -------------------------------------------------------------------------------------------
     @PreAuthorize("hasAnyAuthority('ADMIN', 'MAIN_ADMIN')")
     @GetMapping("/delete/{id}")
     public String deleteUser(
@@ -100,7 +101,7 @@ public class UserController {
             @RequestParam(required = false) String divisionName_Selected,
             @RequestParam(required = false) String passwordNew,
             @RequestParam(required = false) String passwordNew2,
-            @RequestParam(required = false) String id,
+            @PathVariable(required = false) String id,
             @RequestParam(required = false) String usernameOld,
             @RequestParam Map<String, String> form
     ) throws JsonProcessingException {
@@ -136,7 +137,7 @@ public class UserController {
         long idUserAuth = userAuthentication.getId();
         long idUserDb = userFromDb.getId();
         if (idUserAuth == idUserDb){
-            userService.writeLogFile(userFromDb, "пользователь изменил свои данные", null);
+            logService.writeUserLog(userFromDb, "пользователь изменил свои данные");
             userService.updateUserFromDb(userFromDb, form);
             model.addAttribute("message", "Данные успешно обновлены!");
             if (isChangePassword){
@@ -145,7 +146,7 @@ public class UserController {
                 return Constants.PROFILE_PAGE;
             }
         } else {
-            userService.writeLogFile(userAuthentication, "администратор изменил данные пользователя", userFromDb);
+            logService.writeUserLog(userAuthentication, "администратор изменил данные пользователя - " + userFromDb.getUsername());
             userService.updateUserFromDb(userFromDb, form);
             return "redirect:/users";
         }

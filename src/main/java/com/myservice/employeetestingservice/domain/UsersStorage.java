@@ -23,9 +23,7 @@ public class UsersStorage {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private Long id;
 
-    @NotBlank(message = "Поле не может быть пустым!")
     private String usersStorageName;
-
     private String storageDescription;
     private String logFile;
     private boolean isParentStorage;

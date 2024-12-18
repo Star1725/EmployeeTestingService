@@ -25,7 +25,7 @@
                 <#--                </#if>-->
                 <#if isMainAdmin>
                     <li class="nav-item">
-                        <a class="nav-link" href="/organization">Организация</a>
+                        <a class="nav-link" href="/usersStorage">Организация/подразделение</a>
                     </li>
                 </#if>
                 <#if isAdmin>

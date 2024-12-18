@@ -215,7 +215,6 @@
         </div>
         <input type="hidden" name="_csrf" value="${_csrf.token}"/>
         <input type="hidden" name="usernameOld" value="${user.getUsername()}"/>
-        <input type="hidden" name="id" value="${user.id}"/>
     </form>
     <#if message??>
         ${message}
