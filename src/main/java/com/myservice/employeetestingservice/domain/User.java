@@ -47,9 +47,9 @@ public class User implements UserDetails {
     private User administrator;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "usersStorage_id")
+    @JoinColumn(name = "userStorage_id")
     @ToString.Exclude
-    private UsersStorage usersStorage;
+    private UserStorage userStorage;
 
     @ElementCollection(targetClass = Role.class, fetch = FetchType.EAGER)
     @CollectionTable(name = "user_role", joinColumns = @JoinColumn(name = "user_id"))

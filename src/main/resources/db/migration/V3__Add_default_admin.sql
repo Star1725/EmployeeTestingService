@@ -1,7 +1,7 @@
-insert into usr (id, username, password, active, users_storage_id)
+insert into usr (id, username, password, active, user_storage_id)
     values (0, 'MAIN_ADMIN', 'MAIN_ADMIN', true, 0);
 
-insert into users_storage_storage_users (storage_users_id, users_storage_id)
+insert into user_storage_storage_users (storage_users_id, user_storage_id)
 values (0, 0);
 
 insert into user_role (user_id, roles)

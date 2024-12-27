@@ -13,19 +13,19 @@
                 <li class="nav-item">
                     <a class="nav-link" aria-current="page" href="/mainPage">Главная</a>
                 </li>
-                <#--                <#if user??>-->
+                <#--                <#if userDTO??>-->
                 <#--                    <li class="nav-item">-->
                 <#--                        <a class="nav-link" aria-current="page" href="/subjectQuestion">Тематика</a>-->
                 <#--                    </li>-->
                 <#--                </#if>-->
-                <#--                <#if user??>-->
+                <#--                <#if userDTO??>-->
                 <#--                    <li class="nav-item">-->
                 <#--                        <a class="nav-link" aria-current="page" href="/mainPage">Вопросы</a>-->
                 <#--                    </li>-->
                 <#--                </#if>-->
                 <#if isMainAdmin>
                     <li class="nav-item">
-                        <a class="nav-link" href="/usersStorage">Организация/подразделение</a>
+                        <a class="nav-link" href="/userStorage">Организация/подразделение</a>
                     </li>
                 </#if>
                 <#if isAdmin>

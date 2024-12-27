@@ -1,7 +1,6 @@
 package com.myservice.employeetestingservice.domain;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -18,28 +17,49 @@ import java.util.Set;
 @Setter
 @RequiredArgsConstructor
 @Entity
-public class UsersStorage {
+public class UserStorage {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private Long id;
 
-    private String usersStorageName;
+    private String userStorageName;
     private String storageDescription;
     private String logFile;
     private boolean isParentStorage;
-    private boolean isChildrenStorage;
+    private boolean isChildStorage;
     private LocalDateTime dateCreated;
     private LocalDateTime dateChanged;
 
     @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @OrderBy("usersStorageName ASC")
+    @OrderBy("userStorageName ASC")
     @ToString.Exclude
-    private Set<UsersStorage> childrenUsersStorages = new HashSet<>();
+    private Set<UserStorage> childUserStorages;
+    //------------------------------------------------------------------------------------------------------------------
+    public Set<User> getStorageUsers() {
+        storageUsers.addAll(getAllUsers());
+        return storageUsers;
+    }
+
+    private Set<User> getAllUsers() {
+        Set<User> storageUsers = new HashSet<>();
+        for (UserStorage childUserStorage : childUserStorages) {
+            if (childUserStorage.isParentStorage) {
+                storageUsers.addAll(childUserStorage.getAllUsers());
+            }
+        }
+        return storageUsers;
+    }
 
     @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @OrderBy("username ASC")
     @ToString.Exclude
     private Set<User> storageUsers;
+    //------------------------------------------------------------------------------------------------------------------
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parentUserStorage_id")
+    @ToString.Exclude
+    private UserStorage parentUserStorage;
 
     @OneToOne
     @JoinColumn(name = "administrator_id")
@@ -60,7 +80,7 @@ public class UsersStorage {
         Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
         Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
-        UsersStorage that = (UsersStorage) o;
+        UserStorage that = (UserStorage) o;
         return getId() != null && Objects.equals(getId(), that.getId());
     }
 

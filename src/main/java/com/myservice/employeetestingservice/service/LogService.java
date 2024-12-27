@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myservice.employeetestingservice.domain.User;
-import com.myservice.employeetestingservice.domain.UsersStorage;
+import com.myservice.employeetestingservice.domain.UserStorage;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -26,7 +26,7 @@ public class LogService {
         userSource.setLogFile(logFile);
     }
 
-    public void writeStorageLog(UsersStorage storage, String message) throws JsonProcessingException {
+    public void writeStorageLog(UserStorage storage, String message) throws JsonProcessingException {
         LocalDateTime time = LocalDateTime.now();
         String dateTime = time.toString();
         if (storage.getLogFile() == null || storage.getLogFile().isEmpty()) {
@@ -34,7 +34,7 @@ public class LogService {
         }
         String logFile = storage.getLogFile();
         Map<String, String> mapLog = new ObjectMapper().readValue(logFile, new TypeReference<>() {});
-        mapLog.put(dateTime, storage.getUsersStorageName() + ": " + message);
+        mapLog.put(dateTime, storage.getUserStorageName() + ": " + message);
         logFile = new ObjectMapper().writeValueAsString(mapLog);
         storage.setLogFile(logFile);
     }

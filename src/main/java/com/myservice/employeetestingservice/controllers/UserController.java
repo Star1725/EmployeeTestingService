@@ -91,7 +91,7 @@ public class UserController {
     @PostMapping("profile/{id}")
     public String updateProfileUser(
 //            @Valid
-//            User user,
+//            User userDTO,
 //            BindingResult bindingResult,
             Model model,
             @RequestParam String usernameNew,
@@ -129,7 +129,7 @@ public class UserController {
         model.addAttribute("specAccesses", SpecAccess.values());
         UserDTO userDTO = modelMapper.map(userFromDb, UserDTO.class);
         userDTO.setUsername(usernameNew);
-        model.addAttribute("user", userDTO);
+        model.addAttribute("userDTO", userDTO);
         if (model.asMap().keySet().stream().anyMatch(key->key.contains("Error"))){
             return Constants.PROFILE_PAGE;
         }
@@ -137,8 +137,7 @@ public class UserController {
         long idUserAuth = userAuthentication.getId();
         long idUserDb = userFromDb.getId();
         if (idUserAuth == idUserDb){
-            logService.writeUserLog(userFromDb, "пользователь изменил свои данные");
-            userService.updateUserFromDb(userFromDb, form);
+            userService.updateUserFromDb(null, userFromDb, form);
             model.addAttribute("message", "Данные успешно обновлены!");
             if (isChangePassword){
                 return "redirect:/users/logout";
@@ -146,8 +145,7 @@ public class UserController {
                 return Constants.PROFILE_PAGE;
             }
         } else {
-            logService.writeUserLog(userAuthentication, "администратор изменил данные пользователя - " + userFromDb.getUsername());
-            userService.updateUserFromDb(userFromDb, form);
+            userService.updateUserFromDb(userAuthentication, userFromDb, form);
             return "redirect:/users";
         }
     }
@@ -176,7 +174,7 @@ public class UserController {
         model.addAttribute("accessLevels", AccessLevel.values());
         model.addAttribute("specAccesses", SpecAccess.values());
         UserDTO userDTO = modelMapper.map(user, UserDTO.class);
-        model.addAttribute("user", userDTO);
+        model.addAttribute("userDTO", userDTO);
         return Constants.PROFILE_PAGE;
     }
 

@@ -1,8 +1,8 @@
 package com.myservice.employeetestingservice.repository;
 
-import com.myservice.employeetestingservice.domain.UsersStorage;
+import com.myservice.employeetestingservice.domain.UserStorage;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface UsersStorageRepository extends JpaRepository<UsersStorage, Long> {
-    UsersStorage findByUsersStorageName(String organizationName);
+public interface UsersStorageRepository extends JpaRepository<UserStorage, Long> {
+    UserStorage findByUserStorageName(String usersStorageName);
 }

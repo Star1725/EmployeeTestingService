@@ -61,7 +61,7 @@ public class UserService implements UserDetailsService{
 
     public void deleteUser(Long id, User userAuthentication) throws JsonProcessingException {
         User userFromDB = userRepository.findById(id).get();
-        logService.writeUserLog(userAuthentication, "администратор удалил пользователя - " + userFromDB.getUsername());
+        logService.writeUserLog(userAuthentication, "администратор удалил пользователя - \"" + userFromDB.getUsername() + "\"");
         userRepository.deleteById(id);
     }
 
@@ -100,7 +100,7 @@ public class UserService implements UserDetailsService{
         return userFromDb != null;
     }
 
-    public void updateUserFromDb(User userFromDb, Map<String, String> form) {
+    public void updateUserFromDb(User userAuthentication, User userFromDb, Map<String, String> form) throws JsonProcessingException {
         userFromDb.setUsername(form.get("usernameNew"));
         if (!userFromDb.getRoles().contains(Role.MAIN_ADMIN)) {
             //получение списка всех ролей, из которых потом проверить какие установлены данному пользователю
@@ -122,6 +122,11 @@ public class UserService implements UserDetailsService{
         }
         if (form.get("passwordNew") != null && !form.get("passwordNew").isEmpty()) {
             userFromDb.setPassword(passwordEncoder.encode(form.get("passwordNew")));
+        }
+        if (userAuthentication == null){
+            logService.writeUserLog(userFromDb, "пользователь изменил свои данные");
+        } else {
+            logService.writeUserLog(userAuthentication, "администратор изменил данные пользователя - \"" + userFromDb.getUsername()+ "\"");
         }
         userRepository.save(userFromDb);
     }

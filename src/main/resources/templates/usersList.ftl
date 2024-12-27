@@ -62,8 +62,8 @@
                 <td>${user.username}</td>
                 <!--Подразделение-->
                 <td>
-                    <#if user.usersStorage??>
-                        ${user.usersStorage.usersStorageName}
+                    <#if user.userStorage??>
+                        ${user.userStorage.getUserStorageName()}
                     </#if>
                 </td>
                 <!--Роли будем выводить в виде списка в строчку через запятую (#sep)-->
