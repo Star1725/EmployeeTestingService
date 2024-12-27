@@ -53,7 +53,7 @@ public class UserStorageService {
     public boolean updateUserStorage(UserStorage userStorage, User userAdmin, UserStorage userStorageParent) throws JsonProcessingException {
         //проверяем БД на наличие хранилища с таким же именем
         UserStorage userStorageDb = usersStorageRepository.findByUserStorageName(userStorage.getUserStorageName());
-        if (userStorageDb != null) {
+        if (userStorageDb != null && !Objects.equals(userStorageDb.getId(), userStorage.getId())) {
             return true;
         }
         LocalDateTime time = LocalDateTime.now();
@@ -61,6 +61,7 @@ public class UserStorageService {
         if (userStorageParent != null){
             userStorageParent.getChildUserStorages().add(userStorage);
             userStorageParent.setParentStorage(true);
+            userStorage.setParentUserStorage(userStorageParent);
             userStorage.setChildStorage(true);
             logService.writeStorageLog(userStorageParent, ": администратор - \"" + userAdmin.getUsername() + "\" в составе организации/подразделения обновил данные подразделения - \"" + userStorage.getUserStorageName() + "\"");
             logService.writeUserLog(userAdmin, "администратор в составе организации/подразделения - \"" + userStorageParent.getUserStorageName() + "\" обновил данные подразделение - \"" + userStorage.getUserStorageName() + "\"");
@@ -76,31 +77,35 @@ public class UserStorageService {
         return false;
     }
 
-    public void deleteUserStorage(long id, User userAuthentication) throws JsonProcessingException {
+    public String deleteUserStorage(long id, User userAuthentication) throws JsonProcessingException {
         UserStorage userStorageDb = usersStorageRepository.findById(id).get();
-        if (userStorageDb.isChildStorage()){
+        String idParentStorage = String.valueOf(0);
+        // Если это родительское хранилище, переназначить дочерние элементы
+        if (userStorageDb.isParentStorage()) {
+            Set<UserStorage> childUserStorages = new HashSet<>(userStorageDb.getChildUserStorages());
+            for (UserStorage child : childUserStorages) {
+                child.setParentUserStorage(usersStorageRepository.getReferenceById(0L));
+                child.setUserStorageName(child.getUserStorageName() + "(из состава удаленной организации/подразделения - " + userStorageDb.getUserStorageName() + ")");
+                child.setParentStorage(true);
+                usersStorageRepository.save(child); // Сохраняем обновление
+                logService.writeStorageLog(child, "Родительское хранилище изменено на корневое после удаления - \"" + userStorageDb.getUserStorageName() + "\"");
+            }
+            userStorageDb.getChildUserStorages().clear(); // Удаляем ссылки на дочерние элементы
+        }
+        // Если это дочернее хранилище, обновить родительское хранилище
+        if (userStorageDb.isChildStorage()) {
             UserStorage parentUserStorage = userStorageDb.getParentUserStorage();
-            if (!parentUserStorage.getUserStorageName().equals("-")){
-                Set<UserStorage> userStorageSet = parentUserStorage.getChildUserStorages();
-                userStorageSet.remove(userStorageDb);
-                usersStorageRepository.save(parentUserStorage);
+            if (parentUserStorage != null) {
+                parentUserStorage.getChildUserStorages().remove(userStorageDb);
+                usersStorageRepository.save(parentUserStorage); // Сохраняем изменения в родительском хранилище
+                logService.writeStorageLog(parentUserStorage, "Удалено дочернее подразделение - \"" + userStorageDb.getUserStorageName() + "\"");
+                idParentStorage = String.valueOf(parentUserStorage.getId());
             }
-            logService.writeStorageLog(parentUserStorage, "администратором удалено дочернее подразделение - \"" + userStorageDb.getUserStorageName()+ "\"");
         }
-        if (userStorageDb.isParentStorage()){
-            Set<UserStorage> userStorageSet = userStorageDb.getChildUserStorages();
-            for (UserStorage userStorage : userStorageSet) {
-                userStorage.setParentStorage(true);
-                userStorage.setParentUserStorage(usersStorageRepository.getReferenceById(0L));
-                userStorageDb.getChildUserStorages().remove(userStorage);
-                usersStorageRepository.save(userStorageDb);
-                usersStorageRepository.save(userStorage);
-                logService.writeStorageLog(userStorage, "администратором удалена родительская организация/подразделение - \"" + userStorageDb.getUserStorageName()+ "\"");
-            }
 
-        }
-        logService.writeUserLog(userAuthentication, "администратор удалил организацию/подразделение - \"" + userStorageDb.getUserStorageName()+ "\"");
-        usersStorageRepository.deleteById(id);
+        logService.writeUserLog(userAuthentication, "Администратор удалил хранилище - \"" + userStorageDb.getUserStorageName() + "\"");
+        usersStorageRepository.delete(userStorageDb); // Удаляем сам элемент
+        return idParentStorage;
     }
 
     public UserStorage getUsersStorageByUsersStorageName(String usersStorageName) {
