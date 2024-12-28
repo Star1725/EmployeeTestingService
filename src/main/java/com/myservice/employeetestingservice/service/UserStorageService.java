@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Data
@@ -18,15 +19,26 @@ public class UserStorageService {
     private final UsersStorageRepository usersStorageRepository;
     private final LogService logService;
 
-    public List<UserStorage> getAllUserStorages() {
-        return usersStorageRepository.findAll().stream().sorted(Comparator.comparing(UserStorage::getUserStorageName)).toList();
+    public Set<UserStorage> getAllUserStoragesWithDefaultParent() {
+        return usersStorageRepository.findAll().stream()
+                //отфильтровываем дефолтную организацию
+                .filter(userStorage -> !"-".equals(userStorage.getUserStorageName()))
+                //оставляем только родительские организации верхнего уровня (дочерние организации для дефолтной)
+                .filter(userStorage -> userStorage.getParentUserStorage().getUserStorageName().equals("-"))
+                .collect(Collectors.toSet());
     }
 
     public boolean addUserStorage(UserStorage userStorage, User userAdmin, UserStorage userStorageParent) throws JsonProcessingException {
         //проверяем БД на наличие хранилища с таким же именем
-        UserStorage userStorageDb = usersStorageRepository.findByUserStorageName(userStorage.getUserStorageName());
-        if (userStorageDb != null) {
-            return true;
+        if (userStorageParent != null){
+            if (userStorageParent.getChildUserStorages().stream().anyMatch(userStorage1 -> userStorage1.getUserStorageName().equals(userStorage.getUserStorageName()))){
+                return true;
+            }
+        } else {
+            UserStorage userStorageDb = usersStorageRepository.findByUserStorageName(userStorage.getUserStorageName());
+            if (userStorageDb != null) {
+                return true;
+            }
         }
         LocalDateTime time = LocalDateTime.now();
         userStorage.setCreatedUser(userAdmin);
@@ -112,12 +124,6 @@ public class UserStorageService {
         return usersStorageRepository.findByUserStorageName(usersStorageName);
     }
 
-    public List<UserStorage> getChildUserStorages(String id) {
-        UserStorage userStorageDb = usersStorageRepository.findById(Long.parseLong(id)).get();
-        Set<UserStorage> childUserStorage = usersStorageRepository.findById(Long.valueOf(id)).get().getChildUserStorages();
-        return childUserStorage.stream().toList();
-    }
-
     public StringBuffer getAllNameParentStorages(UserStorage parentUserStorage) {
         List<String> nameParentStorages = new LinkedList<>();
         UserStorage bufferUserStorage = parentUserStorage;
@@ -147,4 +153,21 @@ public class UserStorageService {
         return parentUserStorage.getParentUserStorage();
 
     }
+
+    public UserStorage determineWhichParentStorage(String userStorageParentNameSelected, String idParentStorage) {
+        UserStorage userStorageParent = null;
+        if (idParentStorage != null && !idParentStorage.isEmpty()){
+            String id = idParentStorage.replaceAll("[^0-9]", "");
+            UserStorage userStorageUpParent = getUsersStorageRepository().getReferenceById(Long.valueOf(id));
+            if (!userStorageUpParent.getUserStorageName().equals(userStorageParentNameSelected)){
+                userStorageParent = userStorageUpParent.getChildUserStorages().stream().filter(userStorage1 -> userStorage1.getUserStorageName().equals(userStorageParentNameSelected)).findAny().get();
+            } else {
+                userStorageParent = userStorageUpParent;
+            }
+        } else {
+            userStorageParent = getUsersStorageByUsersStorageName(userStorageParentNameSelected);
+        }
+        return userStorageParent;
+    }
+
 }

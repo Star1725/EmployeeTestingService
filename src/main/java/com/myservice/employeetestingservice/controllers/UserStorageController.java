@@ -33,19 +33,10 @@ public class UserStorageController {
     @GetMapping
     @PreAuthorize("hasAnyAuthority('MAIN_ADMIN', 'ADMIN')")
     public String getAllUserStorages(@AuthenticationPrincipal User userAdmin, Model model) {
-        List<UserStorage> userStorages = userStorageService.getAllUserStorages();
+        Set<UserStorage> userStorages = userStorageService.getAllUserStoragesWithDefaultParent();
 
-        // Фильтрация списка
-        //отфильтровываем дефолтную организацию
-        List<UserStorage> filteredUserStorages1 = userStorages.stream()
-                .filter(userStorage -> !"-".equals(userStorage.getUserStorageName()))
-                .collect(Collectors.toList());
-        //оставляем только родительские организации верхнего уровня (дочерние организации для дефолтной)
-        List<UserStorage> filteredUserStorages2 = filteredUserStorages1.stream()
-                .filter(userStorage -> userStorage.getParentUserStorage().getUserStorageName().equals("-"))
-                .collect(Collectors.toList());
-        model.addAttribute("userStorages", filteredUserStorages2);
-        model.addAttribute("userStoragesForChoice", filteredUserStorages2);
+        model.addAttribute("userStorages", userStorages);
+        model.addAttribute("userStoragesForChoice", userStorages);
 
         return "userStoragesPage";
     }
@@ -74,24 +65,41 @@ public class UserStorageController {
     // добавление организации/подразделения ----------------------------------------------------------------------------
     @PostMapping("/add")
     @PreAuthorize(value = "hasAnyAuthority('MAIN_ADMIN', 'ADMIN')")
-    public String addUsersStorage(@PathVariable(required = false, name = "id") String idStorage,
-                                  UserStorageDTO userStorageDTO,
+    public String addUsersStorage(UserStorageDTO userStorageDTO,
                                   Model model,
                                   @RequestParam(required = false) String userStorageParentNameSelected,
+                                  @RequestParam(required = false) String idParentStorage,
                                   @AuthenticationPrincipal User userAdmin) throws JsonProcessingException {
-        List<UserStorage> userStorages = userStorageService.getAllUserStorages();
+        //определяем в какую организацию либо внутреннее подразделение добавляем
+        UserStorage parentUserStorage = userStorageService.determineWhichParentStorage(userStorageParentNameSelected, idParentStorage);
+
+        //получение:
+        Set<UserStorage> userStorages;                           //списка подчинённых подразделений для заполнения таблицы
+        String allParentStoragesNames = "";                      //строки-дерева иерархии организации
+        Set<UserStorage> userStoragesForChoice = new HashSet<>();//списка подразделений для выбора подчинённости
+        if (idParentStorage != null && !idParentStorage.isEmpty()){
+            userStorages = parentUserStorage.getChildUserStorages();
+            allParentStoragesNames = String.valueOf(userStorageService.getAllNameParentStorages(parentUserStorage));
+            userStoragesForChoice = new HashSet<>(parentUserStorage.getChildUserStorages());
+        } else {
+            userStorages = userStorageService.getAllUserStoragesWithDefaultParent();
+        }
+        //валидация входящих данных
         if (validationOfInputData(userStorageDTO, model, userStorages, null)) {
             return Constants.USER_STORAGE_PAGE;
         }
+
         UserStorage userStorage = modelMapper.map(userStorageDTO, UserStorage.class);
-        UserStorage userStorageParent = userStorageService.getUsersStorageByUsersStorageName(userStorageParentNameSelected);
-        if (userStorageService.addUserStorage(userStorage, userAdmin, userStorageParent)) {
+        if (userStorageService.addUserStorage(userStorage, userAdmin, parentUserStorage)) {
             model.addAttribute("userStorageNameError", "Такое название уже существует!");
-            model.addAttribute("userStorage", userStorageDTO);
+            model.addAttribute("parentUserStorage", parentUserStorage);
+            model.addAttribute("allParentStoragesNames", allParentStoragesNames);
             model.addAttribute("userStorages", userStorages);
+            model.addAttribute("userStoragesForChoice", userStoragesForChoice);
+            model.addAttribute("userStorage", userStorageDTO);
             return Constants.USER_STORAGE_PAGE;
         }
-        return redirectUserStoragePage(userStorageParent);
+        return redirectUserStoragePage(parentUserStorage);
     }
 
     //обновление организации/подразделения -----------------------------------------------------------------------------
@@ -102,14 +110,16 @@ public class UserStorageController {
                                      Model model,
                                      @RequestParam(required = false) String userStorageParentNameSelected,
                                      @AuthenticationPrincipal User userAdmin) throws JsonProcessingException {
-        List<UserStorage> userStorages = userStorageService.getAllUserStorages();
+        //определяем для какой организации либо внутреннего подразделения обновляем
+        UserStorage userStorageParent = userStorageService.getUsersStorageByUsersStorageName(userStorageParentNameSelected);
+        Set<UserStorage> userStorages = userStorageService.getAllUserStoragesWithDefaultParent();
         if (validationOfInputData(userStorageDTO, model, userStorages, idStorage)) {
             return Constants.USER_STORAGE_PAGE;
         }
         String id = idStorage.replaceAll("[^0-9]", "");
         userStorageDTO.setId(Long.parseLong(id));
         UserStorage userStorage = convertToUsersStorage(userStorageDTO);
-        UserStorage userStorageParent = userStorageService.getUsersStorageByUsersStorageName(userStorageParentNameSelected);
+
         if (userStorageService.updateUserStorage(userStorage, userAdmin, userStorageParent)) {
             model.addAttribute("userStorageNameError", "Такое название уже существует!");
             model.addAttribute("openModalId", idStorage);
@@ -146,7 +156,7 @@ public class UserStorageController {
         }
     }
 
-    private boolean validationOfInputData(UserStorageDTO userStorageDTO, Model model, List<UserStorage> userStorages, String idStorage) {
+    private boolean validationOfInputData(UserStorageDTO userStorageDTO, Model model, Set<UserStorage> userStorages, String idStorage) {
         if (userStorageDTO.getUserStorageName().isEmpty()) {
             model.addAttribute("usersStorageNameError", "Поле не может быть пустым!");
             if (idStorage != null) {

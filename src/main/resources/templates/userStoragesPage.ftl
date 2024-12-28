@@ -130,8 +130,9 @@
                                 <div class="modal-body px-2">
                                     <form method="post" class="mt-2" action="/userStorage/update/${storage.id}">
                                         <div class="form-group row my-2 px-3">
-                                            <label for="usersStorageName" class="col-form-label">Название
-                                                организации/подразделения</label>
+                                            <label for="usersStorageName" class="col-form-label">
+                                                Название организации/подразделения
+                                            </label>
                                             <input class="form-control ${(userStorageNameError??)?string('is-invalid', '')}"
                                                    type="text"
                                                    name="userStorageName"
@@ -146,7 +147,9 @@
                                             </#if>
                                         </div>
                                         <div class="form-group row my-2 px-3">
-                                            <label for="usersStorageName" class="col-form-label">Название вышестоящей организации/подразделение</label>
+                                            <label for="usersStorageName" class="col-form-label">
+                                                Название вышестоящей организации/подразделение
+                                            </label>
                                             <select class="form-select ${(userStorageParentNameSelectedError??)?string('is-invalid', '')}"
                                                     name="userStorageParentNameSelected"
                                                     aria-label="Выберите организацию"
@@ -210,7 +213,8 @@
                     <div class="col-sm-5" style="text-align: left;">
                         <input class="form-control ${(userStorageNameError??)?string('is-invalid', '')}"
                                name="userStorageName" placeholder="Введите название организации/подразделения"
-                               type="text"/>
+                               type="text"
+                               value="<#if userStorage??>${userStorage.userStorageName}</#if>"/>
                         <#if userStorageNameError??>
                             <div class="invalid-feedback" style="margin: 0 auto; text-align: left;">
                                 ${userStorageNameError}
@@ -245,6 +249,9 @@
                 <div class="form group row my-2" style="margin: 0 auto; text-align: left;">
                     <div class="col-sm-7" style="text-align: left;">
                         <input name="_csrf" type="hidden" value="${_csrf.token}"/>
+                        <input name="idParentStorage" type="hidden" value="<#if parentUserStorage??>
+                                    ${parentUserStorage.id}
+                                </#if>"/>
                         <button class="btn btn-primary col-sm-4" type="submit">
                             Добавить
                         </button>
@@ -254,7 +261,7 @@
                     <#if messageResultAdd??>
                         ${messageResultAdd}
                     </#if>
-            </span>
+                </span>
             </div>
         </form>
     </div>
