@@ -159,7 +159,7 @@
                                                         ${storage.getParentUserStorage().userStorageName}
                                                     </#if>
                                                 </option>
-                                                <#list userStoragesForChoice! as userStorage>
+                                                <#list userStorages! as userStorage>
                                                     <#if storage.getId() != userStorage.getId()>
                                                         <option value="${userStorage.userStorageName}"
                                                                 name="userStorageParentName_Selected">${userStorage.userStorageName}</option>
@@ -232,7 +232,7 @@
                                     ${parentUserStorage.userStorageName}
                                 </#if>
                             </option>
-                            <#list userStoragesForChoice! as userStorage>
+                            <#list userStorages! as userStorage>
                                 <option name="userStorageParentNameSelected"
                                         value="${userStorage.userStorageName}">${userStorage.userStorageName}</option>
                             </#list>

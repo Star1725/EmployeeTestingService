@@ -36,7 +36,6 @@ public class UserStorageController {
         Set<UserStorage> userStorages = userStorageService.getAllUserStoragesWithDefaultParent();
 
         model.addAttribute("userStorages", userStorages);
-        model.addAttribute("userStoragesForChoice", userStorages);
 
         return "userStoragesPage";
     }
@@ -52,13 +51,11 @@ public class UserStorageController {
         String id = idStorage.replaceAll("[^0-9]", "");
         UserStorage parentUserStorage = userStorageService.getUsersStorageRepository().getReferenceById(Long.valueOf(id));
         Set<UserStorage> userStorages = parentUserStorage.getChildUserStorages();
+        userStorages.add(parentUserStorage);
         String allParentStoragesNames = String.valueOf(userStorageService.getAllNameParentStorages(parentUserStorage));
-        Set<UserStorage> userStoragesForChoice = new HashSet<>(parentUserStorage.getChildUserStorages());
-        userStoragesForChoice.add(parentUserStorage);
         model.addAttribute("parentUserStorage", parentUserStorage);
         model.addAttribute("allParentStoragesNames", allParentStoragesNames);
         model.addAttribute("userStorages", userStorages);
-        model.addAttribute("userStoragesForChoice", userStoragesForChoice);
         return "userStoragesPage";
     }
 
@@ -76,11 +73,9 @@ public class UserStorageController {
         //получение:
         Set<UserStorage> userStorages;                           //списка подчинённых подразделений для заполнения таблицы
         String allParentStoragesNames = "";                      //строки-дерева иерархии организации
-        Set<UserStorage> userStoragesForChoice = new HashSet<>();//списка подразделений для выбора подчинённости
         if (idParentStorage != null && !idParentStorage.isEmpty()){
             userStorages = parentUserStorage.getChildUserStorages();
             allParentStoragesNames = String.valueOf(userStorageService.getAllNameParentStorages(parentUserStorage));
-            userStoragesForChoice = new HashSet<>(parentUserStorage.getChildUserStorages());
         } else {
             userStorages = userStorageService.getAllUserStoragesWithDefaultParent();
         }
@@ -95,7 +90,6 @@ public class UserStorageController {
             model.addAttribute("parentUserStorage", parentUserStorage);
             model.addAttribute("allParentStoragesNames", allParentStoragesNames);
             model.addAttribute("userStorages", userStorages);
-            model.addAttribute("userStoragesForChoice", userStoragesForChoice);
             model.addAttribute("userStorage", userStorageDTO);
             return Constants.USER_STORAGE_PAGE;
         }
