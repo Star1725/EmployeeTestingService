@@ -9,7 +9,7 @@ import com.myservice.employeetestingservice.dto.UserDTO;
 import com.myservice.employeetestingservice.service.LogService;
 import com.myservice.employeetestingservice.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.Data;
+import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -25,7 +25,7 @@ import java.util.Map;
 
 @Controller
 @RequestMapping("/users")
-@Data
+@RequiredArgsConstructor
 public class UserController {
     private final UserService userService;
     private final ModelMapper modelMapper;
@@ -70,8 +70,10 @@ public class UserController {
             @PathVariable(name = "id") Integer id,
             Model model) {
         User userFromDb = userService.getUserById(id.longValue());
+        //загрузка всего пользователя, т.к. аннотация @AuthenticationPrincipal всё не подгружает из БД
+        User fullUserAuthentication = userService.getUserByIdWithUserStorage(userAuthentication);
         if (userAuthentication.getId() == userFromDb.getId()) {
-            return setModelFromProfileUser(userAuthentication, true, model);
+            return setModelFromProfileUser(fullUserAuthentication, true, model);
         } else {
             if (userAuthentication.isMainAdmin()) {
                 return setModelFromProfileUser(userFromDb, false, model);
@@ -79,10 +81,10 @@ public class UserController {
                 if (!userFromDb.getRoles().contains(Role.MAIN_ADMIN) && !userFromDb.getRoles().contains(Role.ADMIN)) {
                     return setModelFromProfileUser(userFromDb, false, model);
                 } else {
-                    return setModelFromProfileUser(userAuthentication, true, model);
+                    return setModelFromProfileUser(fullUserAuthentication, true, model);
                 }
             } else {
-                return setModelFromProfileUser(userAuthentication, true, model);
+                return setModelFromProfileUser(fullUserAuthentication, true, model);
             }
         }
     }

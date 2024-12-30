@@ -33,7 +33,7 @@
                         name="usersStorageName_Selected"
                         aria-label=".form-select-sm-2">
                     <option selected>
-                        <#if userDTO.userStorage??>${userDTO.userStorage.getUserStorageName}
+                        <#if userDTO.userStorage??>${userDTO.userStorage.userStorageName}
                         <#else>
                         </#if>
                     </option>

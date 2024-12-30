@@ -1,8 +1,6 @@
 package com.myservice.employeetestingservice.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myservice.employeetestingservice.domain.AccessLevel;
 import com.myservice.employeetestingservice.domain.Role;
 import com.myservice.employeetestingservice.domain.SpecAccess;
@@ -10,7 +8,6 @@ import com.myservice.employeetestingservice.domain.User;
 import com.myservice.employeetestingservice.repository.UserRepository;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -170,5 +167,10 @@ public class UserService implements UserDetailsService{
                 accessLevelList.add(SpecAccess.valueOf(key));
             }
         }
+    }
+
+    public User getUserByIdWithUserStorage(User user){
+        User userBuff = userRepository.findByIdWithUserStorage(user.getId()); // Загрузка с использованием JOIN FETCH
+        return userBuff;
     }
 }
