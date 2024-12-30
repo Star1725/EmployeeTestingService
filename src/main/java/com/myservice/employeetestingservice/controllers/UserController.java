@@ -90,15 +90,11 @@ public class UserController {
     // отправка формы для обновления профиля пользователя --------------------------------------------------------------
     @PostMapping("profile/{id}")
     public String updateProfileUser(
-//            @Valid
-//            User userDTO,
-//            BindingResult bindingResult,
             Model model,
             @RequestParam String usernameNew,
             @RequestParam String passwordOld,
             @AuthenticationPrincipal User userAuthentication,
-            @RequestParam(required = false) String organizationName_Selected,
-            @RequestParam(required = false) String divisionName_Selected,
+            @RequestParam(required = false) String userStorageNameSelected,
             @RequestParam(required = false) String passwordNew,
             @RequestParam(required = false) String passwordNew2,
             @PathVariable(required = false) String id,
@@ -122,7 +118,7 @@ public class UserController {
             model.addAttribute("passwordOldError", "Вы ввели неправильный пароль");
         }
         if (userService.loadUserByUsernameForUpdateUser(usernameNew) && !usernameNew.equals(usernameOld)){
-            model.addAttribute("usernameNewError", Constants.USERNAME_ERROR);
+            model.addAttribute("usernameNewError", Constants.USERNAME_FIND_ERROR);
         }
         model.addAttribute("roles", Role.values());
         model.addAttribute("accessLevels", AccessLevel.values());

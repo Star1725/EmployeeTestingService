@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Set;
 
+import static com.myservice.employeetestingservice.controllers.Constants.*;
+
 @Controller
 @RequestMapping("/userStorage")
 @Data
@@ -31,7 +33,7 @@ public class UserStorageController {
     @PreAuthorize("hasAnyAuthority('MAIN_ADMIN', 'ADMIN')")
     public String getAllUserStorages(@AuthenticationPrincipal User userAdmin, Model model) {
         Set<UserStorage> userStorages = userStorageService.getAllUserStoragesWithDefaultParent();
-        model.addAttribute("userStorages", userStorages);
+        model.addAttribute(USER_STORAGES, userStorages);
         return "userStoragesPage";
     }
 
@@ -43,14 +45,14 @@ public class UserStorageController {
         if (idStorage.equals("0")){
             return redirectUserStoragePage(null);
         }
-        String id = idStorage.replaceAll("[^0-9]", "");
+        String id = idStorage.replaceAll("\\D", "");
         UserStorage parentUserStorage = userStorageService.getUsersStorageRepository().getReferenceById(Long.valueOf(id));
         Set<UserStorage> userStorages = parentUserStorage.getChildUserStorages();
         String allParentStoragesNames = String.valueOf(userStorageService.getAllNameParentStorages(parentUserStorage));
-        model.addAttribute("parentUserStorage", parentUserStorage);
-        model.addAttribute("allParentStoragesNames", allParentStoragesNames);
-        model.addAttribute("userStorages", userStorages);
-        return "userStoragesPage";
+        model.addAttribute(PARENT_USER_STORAGE, parentUserStorage);
+        model.addAttribute(ALL_PARENT_STORAGES_NAMES, allParentStoragesNames);
+        model.addAttribute(USER_STORAGES, userStorages);
+        return USER_STORAGE_PAGE;
     }
 
     // добавление организации/подразделения ----------------------------------------------------------------------------
@@ -75,9 +77,9 @@ public class UserStorageController {
         }
         //валидация входящих данных на пустое имя
         if (validationOfEmptyName(userStorageDTO, model, null)) {
-            model.addAttribute("parentUserStorage", parentUserStorage);
-            model.addAttribute("allParentStoragesNames", allParentStoragesNames);
-            model.addAttribute("userStorages", userStorages);
+            model.addAttribute(PARENT_USER_STORAGE, parentUserStorage);
+            model.addAttribute(ALL_PARENT_STORAGES_NAMES, allParentStoragesNames);
+            model.addAttribute(USER_STORAGES, userStorages);
             model.addAttribute("userStorage", userStorageDTO);
             return Constants.USER_STORAGE_PAGE;
         }
@@ -85,9 +87,9 @@ public class UserStorageController {
         UserStorage userStorage = convertToUsersStorage(userStorageDTO);
         if (userStorageService.addUserStorage(userStorage, userAdmin, parentUserStorage)) {
             model.addAttribute("userStorageNameError", "Такое название уже существует!");
-            model.addAttribute("parentUserStorage", parentUserStorage);
-            model.addAttribute("allParentStoragesNames", allParentStoragesNames);
-            model.addAttribute("userStorages", userStorages);
+            model.addAttribute(PARENT_USER_STORAGE, parentUserStorage);
+            model.addAttribute(ALL_PARENT_STORAGES_NAMES, allParentStoragesNames);
+            model.addAttribute(USER_STORAGES, userStorages);
             model.addAttribute("userStorage", userStorageDTO);
             return Constants.USER_STORAGE_PAGE;
         }
@@ -115,33 +117,34 @@ public class UserStorageController {
             userStorages = userStorageService.getAllUserStoragesWithDefaultParent();
         }
         
-        String id = idStorage.replaceAll("[^0-9]", "");
+        String id = idStorage.replaceAll("\\D", "");
         userStorageDTO.setId(Long.parseLong(id));
         UserStorage updatedUserStorage = convertToUsersStorage(userStorageDTO);
         
         //валидация пустого имени
         if (validationOfEmptyName(userStorageDTO, model, idStorage)) {
-            model.addAttribute("parentUserStorage", parentUserStorage);
-            model.addAttribute("allParentStoragesNames", allParentStoragesNames);
-            model.addAttribute("userStorages", userStorages);
+            model.addAttribute(PARENT_USER_STORAGE, parentUserStorage);
+            model.addAttribute(ALL_PARENT_STORAGES_NAMES, allParentStoragesNames);
+            model.addAttribute(USER_STORAGES, userStorages);
             return Constants.USER_STORAGE_PAGE;
         }
         
         if (userStorageService.updateUserStorage(updatedUserStorage, userAdmin, parentUserStorage)) {
             model.addAttribute("userStorageNameUpdateError", "Такое название уже существует!");
             model.addAttribute("openModalId", idStorage);
+
             if (parentUserStorage.getChildUserStorages().stream().anyMatch(storage -> storage.getId().equals(Long.parseLong(id)))){
-                model.addAttribute("parentUserStorage", parentUserStorage);
+                model.addAttribute(PARENT_USER_STORAGE, parentUserStorage);
             } else {
                 allParentStoragesNames = String.valueOf(userStorageService.getAllNameParentStorages(parentUserStorage.getParentUserStorage()));
                 UserStorage grandParentUserStorage = parentUserStorage.getParentUserStorage();
                 userStorages = grandParentUserStorage.getChildUserStorages();
-                model.addAttribute("parentUserStorage", parentUserStorage.getParentUserStorage());
+                model.addAttribute(PARENT_USER_STORAGE, parentUserStorage.getParentUserStorage());
             }
-            model.addAttribute("allParentStoragesNames", allParentStoragesNames);
-            model.addAttribute("userStorages", userStorages);
+            model.addAttribute(ALL_PARENT_STORAGES_NAMES, allParentStoragesNames);
+            model.addAttribute(USER_STORAGES, userStorages);
             model.addAttribute("updatedUserStorage", updatedUserStorage);
-            return Constants.USER_STORAGE_PAGE;
+            return USER_STORAGE_PAGE;
         }
         return redirectUserStoragePage(parentUserStorage);
     }
@@ -151,16 +154,12 @@ public class UserStorageController {
     @GetMapping("delete/{id}")
     public String deleteUsersStorage(@PathVariable(required = false, name = "id") String idStorage,
                                      @AuthenticationPrincipal User userAuthentication) throws JsonProcessingException {
-        String id = idStorage.replaceAll("[^0-9]", "");
+        String id = idStorage.replaceAll("\\D", "");
         String idParentStorage = userStorageService.deleteUserStorage(Long.parseLong(id), userAuthentication);
         return "redirect:/userStorage" + "/" + idParentStorage;
     }
 
     //------------------------------------------------------------------------------------------------------------------
-    private UserStorageDTO convertToUsersStorageDTO(UserStorage userStorage) {
-        return modelMapper.map(userStorage, UserStorageDTO.class);
-    }
-
     private UserStorage convertToUsersStorage(UserStorageDTO userStorageDTO) {
         return modelMapper.map(userStorageDTO, UserStorage.class);
     }

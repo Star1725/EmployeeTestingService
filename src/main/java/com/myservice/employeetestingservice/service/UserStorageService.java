@@ -89,7 +89,7 @@ public class UserStorageService {
     }
 
     public String deleteUserStorage(long id, User userAuthentication) throws JsonProcessingException {
-        UserStorage userStorageDb = usersStorageRepository.findById(id).get();
+        UserStorage userStorageDb = usersStorageRepository.getReferenceById(id);
         String idParentStorage = String.valueOf(0);
         // Если это родительское хранилище, переназначить дочерние элементы
         if (userStorageDb.isParentStorage()) {
@@ -130,40 +130,37 @@ public class UserStorageService {
         return usersStorageRepository.findByUserStorageName(usersStorageName);
     }
 
-    public StringBuffer getAllNameParentStorages(UserStorage parentUserStorage) {
-        List<String> nameParentStorages = new LinkedList<>();
+    public StringBuilder getAllNameParentStorages(final UserStorage parentUserStorage) {
+        List<String> nameParentStorages = new ArrayList<>();
         UserStorage bufferUserStorage = parentUserStorage;
-        nameParentStorages.add(bufferUserStorage.getUserStorageName());
-        while (true){
-            bufferUserStorage = getParentStorage(bufferUserStorage);
-            if (bufferUserStorage == null){
-                break;
+
+        while (bufferUserStorage != null) {
+            String name = bufferUserStorage.getUserStorageName();
+            if (!"-".equals(name)) {
+                nameParentStorages.add(name);
             }
-            if (bufferUserStorage.getUserStorageName().equals("-")){
-                continue;
-            }
-            nameParentStorages.add(bufferUserStorage.getUserStorageName());
+            bufferUserStorage = bufferUserStorage.getParentUserStorage();
         }
+
         Collections.reverse(nameParentStorages);
-        StringBuffer result = new StringBuffer();
-        for (String storage : nameParentStorages) {
-            if (result.length() > 0) {
-                result.append("/"); // добавляем разделитель
-            }
-            result.append(storage);
-        }
-        return result;
+        return joinNamesWithSeparator(nameParentStorages, "/");
     }
 
-    private UserStorage getParentStorage(UserStorage parentUserStorage){
-        return parentUserStorage.getParentUserStorage();
-
+    private StringBuilder joinNamesWithSeparator(List<String> names, String separator) {
+        StringBuilder result = new StringBuilder();
+        for (String name : names) {
+            if (result.length() > 0) {
+                result.append(separator);
+            }
+            result.append(name);
+        }
+        return result;
     }
 
     public UserStorage determineWhichParentStorage(String userStorageParentNameSelected, String idParentStorage) {
         UserStorage userStorageParent = null;
         if (idParentStorage != null && !idParentStorage.isEmpty()){
-            String id = idParentStorage.replaceAll("[^0-9]", "");
+            String id = idParentStorage.replaceAll("\\D", "");
             UserStorage userStorageUpParent = getUsersStorageRepository().getReferenceById(Long.valueOf(id));
             if (!userStorageUpParent.getUserStorageName().equals(userStorageParentNameSelected)){
                 userStorageParent = userStorageUpParent.getChildUserStorages().stream().filter(userStorage1 -> userStorage1.getUserStorageName().equals(userStorageParentNameSelected)).findAny().get();
