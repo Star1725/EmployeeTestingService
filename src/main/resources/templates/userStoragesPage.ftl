@@ -71,7 +71,11 @@
                             </#if>
                         </td>
                         <#--Количество сотрудников-->
-                        <td>${storage.storageUsers?size}</td>
+                        <td>
+                            <#if storage.storageUsers??>
+                                ${storage.storageUsers?size}
+                            </#if>
+                        </td>
                         <#--Средний балл-->
                         <td>75%</td>
                         <#--Редактировать-->
@@ -130,19 +134,20 @@
                                 <div class="modal-body px-2">
                                     <form method="post" class="mt-2" action="/userStorage/update/${storage.id}">
                                         <div class="form-group row my-2 px-3">
-                                            <label for="usersStorageName" class="col-form-label">
+                                            <label for="userStorageName" class="col-form-label">
                                                 Название организации/подразделения
                                             </label>
-                                            <input class="form-control ${(userStorageNameError??)?string('is-invalid', '')}"
+                                            <input class="form-control ${(userStorageNameUpdateError??)?string('is-invalid', '')}"
                                                    type="text"
                                                    name="userStorageName"
                                                    id="userStorageName"
-                                                   placeholder="Название организации/подразделения"
-                                                   value="<#if storage??>${storage.userStorageName}</#if>"
+                                                   placeholder="Введите новое название"
+                                                   value="<#if updatedUserStorage??>${updatedUserStorage.userStorageName}</#if>"
+<#--                                                   value="<#if storage??>${storage.userStorageName}</#if>"-->
                                                    style="width: 100%;"/>
-                                            <#if userStorageNameError??>
+                                            <#if userStorageNameUpdateError??>
                                                 <div class="invalid-feedback">
-                                                    ${userStorageNameError}
+                                                    ${userStorageNameUpdateError}
                                                 </div>
                                             </#if>
                                         </div>

@@ -54,38 +54,37 @@ public class UserStorageService {
             usersStorageRepository.save(userStorageParent);
         } else {
             //устанавливаем для создаваемого хранилища родительское хранилище по умолчанию
-            userStorage.setParentUserStorage(usersStorageRepository.getReferenceById(0L));
+            UserStorage userStorageDefault = usersStorageRepository.getReferenceById(0L);
+            userStorage.setParentUserStorage(userStorageDefault);
+            userStorageDefault.setParentStorage(true);
+            userStorage.setChildStorage(true);
+            userStorageDefault.getChildUserStorages().add(userStorage);
             logService.writeStorageLog(userStorage, ": организации/подразделения создано администратором - \"" + userAdmin.getUsername() + "\"");
             logService.writeUserLog(userAdmin, "администратор добавил организацию/подразделение - \"" + userStorage.getUserStorageName() + "\"");
-            usersStorageRepository.save(userStorage);
+            usersStorageRepository.save(userStorageDefault);
         }
         return false;
     }
 
-    public boolean updateUserStorage(UserStorage userStorage, User userAdmin, UserStorage userStorageParent) throws JsonProcessingException {
+    public boolean updateUserStorage(UserStorage updatedUserStorage, User userAdmin, UserStorage userStorageParent) throws JsonProcessingException {
         //проверяем БД на наличие хранилища с таким же именем
-        UserStorage userStorageDb = usersStorageRepository.findByUserStorageName(userStorage.getUserStorageName());
-        if (userStorageDb != null && !Objects.equals(userStorageDb.getId(), userStorage.getId())) {
+        UserStorage userStorageDb = usersStorageRepository.getReferenceById(updatedUserStorage.getId());
+        if (userStorageParent.getChildUserStorages().stream().anyMatch(userStorage1 -> userStorage1.getUserStorageName().equals(updatedUserStorage.getUserStorageName()))){
             return true;
         }
+
         LocalDateTime time = LocalDateTime.now();
-        userStorage.setChangedUser(userAdmin);
-        if (userStorageParent != null){
-            userStorageParent.getChildUserStorages().add(userStorage);
-            userStorageParent.setParentStorage(true);
-            userStorage.setParentUserStorage(userStorageParent);
-            userStorage.setChildStorage(true);
-            logService.writeStorageLog(userStorageParent, ": администратор - \"" + userAdmin.getUsername() + "\" в составе организации/подразделения обновил данные подразделения - \"" + userStorage.getUserStorageName() + "\"");
-            logService.writeUserLog(userAdmin, "администратор в составе организации/подразделения - \"" + userStorageParent.getUserStorageName() + "\" обновил данные подразделение - \"" + userStorage.getUserStorageName() + "\"");
-            usersStorageRepository.save(userStorageParent);
-        } else {
-            //устанавливаем для обновляемого хранилища родительское хранилище по умолчанию
-            userStorage.setParentUserStorage(usersStorageRepository.getReferenceById(0L));
-            logService.writeStorageLog(userStorage, ": данные организации/подразделения обновлены администратором - \"" + userAdmin.getUsername() + "\"");
-            logService.writeUserLog(userAdmin, "администратор обновил данные организации/подразделения - \"" + userStorage.getUserStorageName() + "\"");
-        }
-        userStorage.setDateChanged(time);
-        usersStorageRepository.save(userStorage);
+        userStorageDb.setChangedUser(userAdmin);
+        userStorageDb.setUserStorageName(updatedUserStorage.getUserStorageName());
+        userStorageParent.getChildUserStorages().add(userStorageDb);
+        userStorageParent.setParentStorage(true);
+        userStorageDb.setParentUserStorage(userStorageParent);
+        userStorageDb.setChildStorage(true);
+        logService.writeStorageLog(userStorageParent, ": администратор - \"" + userAdmin.getUsername() + "\" в составе организации/подразделения обновил данные подразделения - \"" + userStorageDb.getUserStorageName() + "\"");
+        logService.writeUserLog(userAdmin, "администратор в составе организации/подразделения - \"" + userStorageParent.getUserStorageName() + "\" обновил данные подразделение - \"" + userStorageDb.getUserStorageName() + "\"");
+        usersStorageRepository.save(userStorageParent);
+        updatedUserStorage.setDateChanged(time);
+        usersStorageRepository.save(userStorageDb);
         return false;
     }
 
@@ -94,13 +93,20 @@ public class UserStorageService {
         String idParentStorage = String.valueOf(0);
         // Если это родительское хранилище, переназначить дочерние элементы
         if (userStorageDb.isParentStorage()) {
+            UserStorage grandParentStorage = userStorageDb.getParentUserStorage();
             Set<UserStorage> childUserStorages = new HashSet<>(userStorageDb.getChildUserStorages());
             for (UserStorage child : childUserStorages) {
-                child.setParentUserStorage(usersStorageRepository.getReferenceById(0L));
+                if(grandParentStorage != null){
+                    child.setParentUserStorage(grandParentStorage);
+                    grandParentStorage.getChildUserStorages().add(child);
+                    usersStorageRepository.save(grandParentStorage);
+                } else {
+                    child.setParentUserStorage(usersStorageRepository.getReferenceById(0L));
+                }
                 child.setUserStorageName(child.getUserStorageName() + "(из состава удаленной организации/подразделения - " + userStorageDb.getUserStorageName() + ")");
                 child.setParentStorage(true);
                 usersStorageRepository.save(child); // Сохраняем обновление
-                logService.writeStorageLog(child, "Родительское хранилище изменено на корневое после удаления - \"" + userStorageDb.getUserStorageName() + "\"");
+                logService.writeStorageLog(child, "Родительское хранилище изменено на вышестоящее для удалённого - \"" + userStorageDb.getUserStorageName() + "\"");
             }
             userStorageDb.getChildUserStorages().clear(); // Удаляем ссылки на дочерние элементы
         }

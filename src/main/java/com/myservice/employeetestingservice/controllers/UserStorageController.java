@@ -15,10 +15,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/userStorage")
@@ -34,9 +31,7 @@ public class UserStorageController {
     @PreAuthorize("hasAnyAuthority('MAIN_ADMIN', 'ADMIN')")
     public String getAllUserStorages(@AuthenticationPrincipal User userAdmin, Model model) {
         Set<UserStorage> userStorages = userStorageService.getAllUserStoragesWithDefaultParent();
-
         model.addAttribute("userStorages", userStorages);
-
         return "userStoragesPage";
     }
 
@@ -51,7 +46,6 @@ public class UserStorageController {
         String id = idStorage.replaceAll("[^0-9]", "");
         UserStorage parentUserStorage = userStorageService.getUsersStorageRepository().getReferenceById(Long.valueOf(id));
         Set<UserStorage> userStorages = parentUserStorage.getChildUserStorages();
-        userStorages.add(parentUserStorage);
         String allParentStoragesNames = String.valueOf(userStorageService.getAllNameParentStorages(parentUserStorage));
         model.addAttribute("parentUserStorage", parentUserStorage);
         model.addAttribute("allParentStoragesNames", allParentStoragesNames);
@@ -79,12 +73,16 @@ public class UserStorageController {
         } else {
             userStorages = userStorageService.getAllUserStoragesWithDefaultParent();
         }
-        //валидация входящих данных
-        if (validationOfInputData(userStorageDTO, model, userStorages, null)) {
+        //валидация входящих данных на пустое имя
+        if (validationOfEmptyName(userStorageDTO, model, null)) {
+            model.addAttribute("parentUserStorage", parentUserStorage);
+            model.addAttribute("allParentStoragesNames", allParentStoragesNames);
+            model.addAttribute("userStorages", userStorages);
+            model.addAttribute("userStorage", userStorageDTO);
             return Constants.USER_STORAGE_PAGE;
         }
 
-        UserStorage userStorage = modelMapper.map(userStorageDTO, UserStorage.class);
+        UserStorage userStorage = convertToUsersStorage(userStorageDTO);
         if (userStorageService.addUserStorage(userStorage, userAdmin, parentUserStorage)) {
             model.addAttribute("userStorageNameError", "Такое название уже существует!");
             model.addAttribute("parentUserStorage", parentUserStorage);
@@ -105,22 +103,47 @@ public class UserStorageController {
                                      @RequestParam(required = false) String userStorageParentNameSelected,
                                      @AuthenticationPrincipal User userAdmin) throws JsonProcessingException {
         //определяем для какой организации либо внутреннего подразделения обновляем
-        UserStorage userStorageParent = userStorageService.getUsersStorageByUsersStorageName(userStorageParentNameSelected);
-        Set<UserStorage> userStorages = userStorageService.getAllUserStoragesWithDefaultParent();
-        if (validationOfInputData(userStorageDTO, model, userStorages, idStorage)) {
-            return Constants.USER_STORAGE_PAGE;
+        UserStorage parentUserStorage = userStorageService.getUsersStorageByUsersStorageName(userStorageParentNameSelected);
+
+        //получение:
+        Set<UserStorage> userStorages;                           //списка подчинённых подразделений для заполнения таблицы
+        String allParentStoragesNames = "";                      //строки-дерева иерархии организации
+        if (parentUserStorage != null && !parentUserStorage.getUserStorageName().equals("-")){
+            userStorages = parentUserStorage.getChildUserStorages();
+            allParentStoragesNames = String.valueOf(userStorageService.getAllNameParentStorages(parentUserStorage));
+        } else {
+            userStorages = userStorageService.getAllUserStoragesWithDefaultParent();
         }
+        
         String id = idStorage.replaceAll("[^0-9]", "");
         userStorageDTO.setId(Long.parseLong(id));
-        UserStorage userStorage = convertToUsersStorage(userStorageDTO);
-
-        if (userStorageService.updateUserStorage(userStorage, userAdmin, userStorageParent)) {
-            model.addAttribute("userStorageNameError", "Такое название уже существует!");
-            model.addAttribute("openModalId", idStorage);
+        UserStorage updatedUserStorage = convertToUsersStorage(userStorageDTO);
+        
+        //валидация пустого имени
+        if (validationOfEmptyName(userStorageDTO, model, idStorage)) {
+            model.addAttribute("parentUserStorage", parentUserStorage);
+            model.addAttribute("allParentStoragesNames", allParentStoragesNames);
             model.addAttribute("userStorages", userStorages);
             return Constants.USER_STORAGE_PAGE;
         }
-        return redirectUserStoragePage(userStorageParent);
+        
+        if (userStorageService.updateUserStorage(updatedUserStorage, userAdmin, parentUserStorage)) {
+            model.addAttribute("userStorageNameUpdateError", "Такое название уже существует!");
+            model.addAttribute("openModalId", idStorage);
+            if (parentUserStorage.getChildUserStorages().stream().anyMatch(storage -> storage.getId().equals(Long.parseLong(id)))){
+                model.addAttribute("parentUserStorage", parentUserStorage);
+            } else {
+                allParentStoragesNames = String.valueOf(userStorageService.getAllNameParentStorages(parentUserStorage.getParentUserStorage()));
+                UserStorage grandParentUserStorage = parentUserStorage.getParentUserStorage();
+                userStorages = grandParentUserStorage.getChildUserStorages();
+                model.addAttribute("parentUserStorage", parentUserStorage.getParentUserStorage());
+            }
+            model.addAttribute("allParentStoragesNames", allParentStoragesNames);
+            model.addAttribute("userStorages", userStorages);
+            model.addAttribute("updatedUserStorage", updatedUserStorage);
+            return Constants.USER_STORAGE_PAGE;
+        }
+        return redirectUserStoragePage(parentUserStorage);
     }
 
     // удаление организации/подразделения ------------------------------------------------------------------------------
@@ -150,13 +173,14 @@ public class UserStorageController {
         }
     }
 
-    private boolean validationOfInputData(UserStorageDTO userStorageDTO, Model model, Set<UserStorage> userStorages, String idStorage) {
+    private boolean validationOfEmptyName(UserStorageDTO userStorageDTO, Model model, String idStorage) {
         if (userStorageDTO.getUserStorageName().isEmpty()) {
-            model.addAttribute("usersStorageNameError", "Поле не может быть пустым!");
             if (idStorage != null) {
                 model.addAttribute("openModalId", idStorage);
+                model.addAttribute("userStorageNameUpdateError", "Поле не может быть пустым!");
+            } else {
+                model.addAttribute("userStorageNameError", "Поле не может быть пустым!");
             }
-            model.addAttribute("usersStorages", userStorages);
             return true;
         }
         return false;

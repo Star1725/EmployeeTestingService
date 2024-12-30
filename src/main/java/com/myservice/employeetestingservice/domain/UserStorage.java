@@ -35,20 +35,18 @@ public class UserStorage {
     @ToString.Exclude
     private Set<UserStorage> childUserStorages;
     //------------------------------------------------------------------------------------------------------------------
-    public Set<User> getStorageUsers() {
-        storageUsers.addAll(getAllUsers());
-        return storageUsers;
-    }
-
-    private Set<User> getAllUsers() {
-        Set<User> storageUsers = new HashSet<>();
-        for (UserStorage childUserStorage : childUserStorages) {
-            if (childUserStorage.isParentStorage) {
-                storageUsers.addAll(childUserStorage.getAllUsers());
-            }
-        }
-        return storageUsers;
-    }
+//    public Set<User> getStorageUsers() {
+//        storageUsers.addAll(getAllUsers());
+//        return storageUsers;
+//    }
+//
+//    private Set<User> getAllUsers() {
+//        Set<User> storageUsers = new HashSet<>();
+//        for (UserStorage childUserStorage : childUserStorages) {
+//            storageUsers.addAll(childUserStorage.getAllUsers());
+//        }
+//        return storageUsers;
+//    }
 
     @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @OrderBy("username ASC")
