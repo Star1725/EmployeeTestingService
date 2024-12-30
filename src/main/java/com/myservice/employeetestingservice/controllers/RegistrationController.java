@@ -3,10 +3,10 @@ package com.myservice.employeetestingservice.controllers;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.myservice.employeetestingservice.domain.User;
 import com.myservice.employeetestingservice.dto.UserDTO;
+import com.myservice.employeetestingservice.mapper.UserMapper;
 import com.myservice.employeetestingservice.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.modelmapper.ModelMapper;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -23,7 +23,7 @@ public class RegistrationController {
 
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
-    private final ModelMapper modelMapper;
+    private final UserMapper userMapper;
 
     @GetMapping("/registration")
     public String registration(Model model){
@@ -52,22 +52,13 @@ public class RegistrationController {
             model.mergeAttributes(errorsMap);
             return Constants.REGISTRATION_PAGE;
         }
-        User user = converteToUser(userDTO);
+        User user = userMapper.convertToEntityRegistration(userDTO);
         if (!userService.createUserFromRegistrationPage(user)){
             model.addAttribute("usernameError", "Такой Пользователь уже существует!");
             return Constants.REGISTRATION_PAGE;
         } else {
             return "redirect:/login";
         }
-    }
-
-    private UserDTO converteToUserDTO(User user){
-        return modelMapper.map(user, UserDTO.class);
-    }
-
-
-    private User converteToUser(UserDTO userDTO){
-        return modelMapper.map(userDTO, User.class);
     }
 
 }

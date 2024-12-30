@@ -10,6 +10,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -35,10 +36,12 @@ public class User implements UserDetails {
 
     @OneToOne
     @JoinColumn(name = "created_user_id")
+    @ToString.Exclude
     private User createdUser;
 
     @OneToOne
     @JoinColumn(name = "changed_user_id")
+    @ToString.Exclude
     private User changedUser;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -55,7 +58,7 @@ public class User implements UserDetails {
     @CollectionTable(name = "user_role", joinColumns = @JoinColumn(name = "user_id"))
     @Enumerated(EnumType.STRING)
     @OrderBy
-    private List<Role> roles;
+    private List<Role> roles = new ArrayList<>();
 
     public boolean isAdmin(){
         return roles.contains(Role.ADMIN);
@@ -71,7 +74,7 @@ public class User implements UserDetails {
     @CollectionTable(name = "user_access", joinColumns = @JoinColumn(name = "user_id"))
     @Enumerated(EnumType.STRING)
     @OrderBy
-    private List<AccessLevel> accessLevels;
+    private List<AccessLevel> accessLevels = new ArrayList<>();
 
     public boolean isAccessToTS(){
         return accessLevels.contains(AccessLevel.LEVEL_1);
@@ -87,7 +90,7 @@ public class User implements UserDetails {
     @CollectionTable(name = "user_spec_access", joinColumns = @JoinColumn(name = "user_id"))
     @Enumerated(EnumType.STRING)
     @OrderBy
-    private List<SpecAccess> specAccesses;
+    private List<SpecAccess> specAccesses = new ArrayList<>();
 
     public boolean isAccessToSD(){
         return specAccesses.contains(SpecAccess.SPEC_ACCESS_1);

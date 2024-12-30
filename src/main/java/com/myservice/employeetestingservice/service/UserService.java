@@ -48,7 +48,7 @@ public class UserService implements UserDetailsService{
         LocalDateTime timeCreated = LocalDateTime.now();
         user.setDateCreated(timeCreated);
         logService.writeUserLog(user, "пользователь создан через страницу регистрации.");
-        user.setRoles(List.of(Role.USER));
+        user.setRoles(new ArrayList<>(List.of(Role.USER)));
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         User userDb = userRepository.save(user);
         userDb.setCreatedUser(userDb);

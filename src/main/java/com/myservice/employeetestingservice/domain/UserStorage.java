@@ -61,14 +61,17 @@ public class UserStorage {
 
     @OneToOne
     @JoinColumn(name = "administrator_id")
+    @ToString.Exclude
     private User administrator;
 
     @OneToOne
     @JoinColumn(name = "created_user_id")
+    @ToString.Exclude
     private User createdUser;
 
     @OneToOne
     @JoinColumn(name = "changed_user_id")
+    @ToString.Exclude
     private User changedUser;
 
     @Override
