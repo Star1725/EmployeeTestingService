@@ -1,10 +1,7 @@
 package com.myservice.employeetestingservice.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.myservice.employeetestingservice.domain.AccessLevel;
-import com.myservice.employeetestingservice.domain.Role;
-import com.myservice.employeetestingservice.domain.SpecAccess;
-import com.myservice.employeetestingservice.domain.User;
+import com.myservice.employeetestingservice.domain.*;
 import com.myservice.employeetestingservice.repository.UserRepository;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -97,9 +94,10 @@ public class UserService implements UserDetailsService{
         return userFromDb != null;
     }
 
-    public void updateUserFromDb(User userAuthentication, User userFromDb, Map<String, String> form) throws JsonProcessingException {
+    public void updateUserFromDb(User userFromDb, UserStorage userStorage, Map<String, String> form, User userAuthentication) throws JsonProcessingException {
         userFromDb.setUsername(form.get("usernameNew"));
-        if (!userFromDb.getRoles().contains(Role.MAIN_ADMIN)) {
+        userFromDb.setUserStorage(userStorage);
+        if (userAuthentication != null) {
             //получение списка всех ролей, из которых потом проверить какие установлены данному пользователю
             //для этого переводим Enum в строковый вид
             Set<String> roles = Arrays.stream(Role.values())

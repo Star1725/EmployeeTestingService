@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.myservice.employeetestingservice.domain.User;
 import com.myservice.employeetestingservice.domain.UserStorage;
 import com.myservice.employeetestingservice.dto.UserStorageDTO;
+import com.myservice.employeetestingservice.mapper.UserStorageMapper;
 import com.myservice.employeetestingservice.service.LogService;
 import com.myservice.employeetestingservice.service.UserService;
 import com.myservice.employeetestingservice.service.UserStorageService;
@@ -15,7 +16,9 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.myservice.employeetestingservice.controllers.Constants.*;
 
@@ -26,6 +29,7 @@ public class UserStorageController {
     private final UserStorageService userStorageService;
     private final UserService userService;
     private final ModelMapper modelMapper;
+    private final UserStorageMapper userStorageMapper;
     private final LogService logService;
 
     // получение списка всех организаций/подразделений ----------------------------------------------------------------------
@@ -46,9 +50,9 @@ public class UserStorageController {
             return redirectUserStoragePage(null);
         }
         String id = idStorage.replaceAll("\\D", "");
-        UserStorage parentUserStorage = userStorageService.getUsersStorageRepository().getReferenceById(Long.valueOf(id));
+        UserStorage parentUserStorage = userStorageService.getUserStorageRepository().getReferenceById(Long.valueOf(id));
         Set<UserStorage> userStorages = parentUserStorage.getChildUserStorages();
-        String allParentStoragesNames = String.valueOf(userStorageService.getAllNameParentStorages(parentUserStorage));
+        String allParentStoragesNames = String.valueOf(userStorageService.getNameParentStorages(parentUserStorage));
         model.addAttribute(PARENT_USER_STORAGE, parentUserStorage);
         model.addAttribute(ALL_PARENT_STORAGES_NAMES, allParentStoragesNames);
         model.addAttribute(USER_STORAGES, userStorages);
@@ -71,7 +75,7 @@ public class UserStorageController {
         String allParentStoragesNames = "";                      //строки-дерева иерархии организации
         if (idParentStorage != null && !idParentStorage.isEmpty()){
             userStorages = parentUserStorage.getChildUserStorages();
-            allParentStoragesNames = String.valueOf(userStorageService.getAllNameParentStorages(parentUserStorage));
+            allParentStoragesNames = String.valueOf(userStorageService.getNameParentStorages(parentUserStorage));
         } else {
             userStorages = userStorageService.getAllUserStoragesWithDefaultParent();
         }
@@ -105,14 +109,14 @@ public class UserStorageController {
                                      @RequestParam(required = false) String userStorageParentNameSelected,
                                      @AuthenticationPrincipal User userAdmin) throws JsonProcessingException {
         //определяем для какой организации либо внутреннего подразделения обновляем
-        UserStorage parentUserStorage = userStorageService.getUsersStorageByUsersStorageName(userStorageParentNameSelected);
+        UserStorage parentUserStorage = userStorageService.getUserStorageByUsersStorageName(userStorageParentNameSelected);
 
         //получение:
         Set<UserStorage> userStorages;                           //списка подчинённых подразделений для заполнения таблицы
         String allParentStoragesNames = "";                      //строки-дерева иерархии организации
         if (parentUserStorage != null && !parentUserStorage.getUserStorageName().equals("-")){
             userStorages = parentUserStorage.getChildUserStorages();
-            allParentStoragesNames = String.valueOf(userStorageService.getAllNameParentStorages(parentUserStorage));
+            allParentStoragesNames = String.valueOf(userStorageService.getNameParentStorages(parentUserStorage));
         } else {
             userStorages = userStorageService.getAllUserStoragesWithDefaultParent();
         }
@@ -136,7 +140,7 @@ public class UserStorageController {
             if (parentUserStorage.getChildUserStorages().stream().anyMatch(storage -> storage.getId().equals(Long.parseLong(id)))){
                 model.addAttribute(PARENT_USER_STORAGE, parentUserStorage);
             } else {
-                allParentStoragesNames = String.valueOf(userStorageService.getAllNameParentStorages(parentUserStorage.getParentUserStorage()));
+                allParentStoragesNames = String.valueOf(userStorageService.getNameParentStorages(parentUserStorage.getParentUserStorage()));
                 UserStorage grandParentUserStorage = parentUserStorage.getParentUserStorage();
                 userStorages = grandParentUserStorage.getChildUserStorages();
                 model.addAttribute(PARENT_USER_STORAGE, parentUserStorage.getParentUserStorage());
@@ -157,6 +161,17 @@ public class UserStorageController {
         String id = idStorage.replaceAll("\\D", "");
         String idParentStorage = userStorageService.deleteUserStorage(Long.parseLong(id), userAuthentication);
         return "redirect:/userStorage" + "/" + idParentStorage;
+    }
+
+    //получение дочерних подразделений для организации подразделения с id
+    @GetMapping("/{id}/childStorages")
+    @ResponseBody
+    public List<UserStorageDTO> getChildStorages(@PathVariable Long id) {
+        UserStorage parentStorage = userStorageService.getUserStorageRepository().getReferenceById(id);
+        Set<UserStorage> childStorages = parentStorage.getChildUserStorages();
+        return childStorages.stream()
+                .map(userStorageMapper::convertToDTO)
+                .collect(Collectors.toList());
     }
 
     //------------------------------------------------------------------------------------------------------------------

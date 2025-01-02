@@ -3,6 +3,16 @@
 
 <@c.page>
 
+    <style>
+        #loadingMessage {
+            font-size: 14px;
+            color: #555;
+            margin-top: 10px;
+            font-style: italic;
+        }
+    </style>
+
+
     <#if userDTO.id == idUserContext>
         <h3 class="mb-2">Ваш профиль</h3>
     <#else >
@@ -29,57 +39,129 @@
         <div class="form-group row my-2">
             <label class="col-sm-2 col-form-label">Организация/подразделение:</label>
             <div class="col-sm-5">
-                <select class="form-select form-select-sm-2 ${(usersStorageName_SelectedError??)?string('is-invalid', '')}"
-                        name="usersStorageName_Selected"
-                        aria-label=".form-select-sm-2">
+                <select class="form-select form-select-sm-2"
+                        name="primaryParentStorageNameSelected"
+                        aria-label=".form-select-sm-2"
+                        id="primaryParentStorageNameSelected">
                     <option selected>
-                        <#if userDTO.userStorage??>${userDTO.userStorage.userStorageName}
-                        <#else>
+                        <#if userStorageDTO.primaryParentStorage??>
+                            ${userStorageDTO.primaryParentStorage.userStorageName}
                         </#if>
                     </option>
-                    <#list organizations! as organization>
-                        <option value="${organization.organizationName}"
-                                name="organizationName_Selected">${organization.organizationName}</option>
+                    <#list userStorageDTO.allPrimaryParentStorages! as primaryParentStorage>
+                        <option value="${primaryParentStorage.getId()}"
+                                name="primaryParentStorageNameSelected"
+                        >${primaryParentStorage.userStorageName}
+                        </option>
                     </#list>
                 </select>
-                <#if organizationName_SelectedError??>
-                    <div class="invalid-feedback">
-                        ${organizationName_SelectedError}
-                    </div>
-                </#if>
             </div>
         </div>
+
+        <div id="loadingMessage" style="display: none;">Загрузка...</div>
+
         <!-- Администратор подразделения / подразделение -------------------------------------------------------------->
-        <#if !userDTO.isMainAdmin()>
             <div class="form-group row my-2">
                 <label class="col-sm-2 col-form-label">
                     <#if userDTO.isAdmin()>
-                        Администратор подразделения:
+                        Администратор организации/подразделения:
                     <#elseif userDTO.isUser()>
-                        Подразделение:
+                        подразделение:
                     </#if>
                 </label>
+
                 <div class="col-sm-5">
-                    <select class="form-select form-select-sm-2 ${(divisionName_SelectedError??)?string('is-invalid', '')}"
-                            name="divisionName_Selected"
-                            aria-label=".form-select-sm-2">
+                    <select class="form-select form-select-sm-2"
+                            name="storageId_Selected"
+                            aria-label=".form-select-sm-2"
+                            id="storageName_Selected">
                         <option selected>
-                            <#if userDTO.division??>${userDTO.division.divisionName}
+                            <#if userStorageDTO.fullUserStorageName??>
+                                ${userStorageDTO.fullUserStorageName}
                             </#if>
                         </option>
-                        <#list divisions! as division>
-                            <option value="${division.divisionName}"
-                                    name="divisionName_Selected">${division.divisionName}</option>
+                        <#list userStorageDTO.allChildStoragesForPrimaryParent! as childStorage>
+                            <option value=""
+                                    name="storageId_Selected"
+                            >${childStorage.fullUserStorageName}</option>
                         </#list>
                     </select>
-                    <#if divisionName_SelectedError??>
-                        <div class="invalid-feedback">
-                            ${divisionName_SelectedError}
-                        </div>
-                    </#if>
                 </div>
             </div>
-        </#if>
+
+        <#--скрипт динамтчески подгружающий список дочерних подразделений в тег <select id="storageName_Selected"> в зависимости от организации, выбранной в <select id="parentStorageName_Selected">>-->
+        <script>
+            /*
+                Находим элемент с id="parentStorageName_Selected".
+                Добавляем обработчик события change, который срабатывает, когда пользователь выбирает другое значение в <select>.
+             */
+            document.getElementById('primaryParentStorageNameSelected').addEventListener('change', function () {
+                /*
+                    this указывает на элемент, вызвавший событие (в данном случае, <select>).
+                    this.value получает значение выбранного пункта (value атрибута <option>).
+                 */
+                const selectedParentStorage = this.value;
+                /*
+                    Находим элемент с id="loadingMessage" (для показа сообщения "Загрузка").
+                    Находим элемент с id="storageName_Selected" (второй <select>), чтобы динамически обновить его содержимое.
+                 */
+                const loadingMessage = document.getElementById('loadingMessage');
+                const childSelect = document.getElementById('storageName_Selected');
+
+                // Показать сообщение "Загрузка..."
+                /*
+                    Устанавливаем display: block для loadingMessage, чтобы оно стало видимым.
+                    Блокируем второй <select> (disabled = true), чтобы пользователь не взаимодействовал с ним до завершения загрузки.
+                 */
+                loadingMessage.style.display = 'block';
+                childSelect.disabled = true; // Заблокировать второй select во время загрузки
+                /*
+                    Отправляем запрос к серверу на URL /userStorage/{selectedParentStorage}/childStorages.
+                    selectedParentStorage подставляется в запрос как идентификатор выбранной организации.
+                 */
+                <#--fetch(`/userStorage/${selectedParentStorage}/childStorages`)-->
+                fetch(`/userStorage/` + selectedParentStorage + `/childStorages`)
+                    /*
+                        Когда сервер возвращает ответ, он преобразуется из JSON-формата в объект JavaScript, который удобен для обработки.
+                     */
+                    .then(response => response.json())
+                    .then(data => {
+                        // Очищаем содержимое второго <select>, чтобы удалить предыдущие опции.
+                        childSelect.innerHTML = '';
+                        /*
+                            Перебираем массив data (список дочерних подразделений) из ответа сервера.
+                            Для каждого элемента создаём новый тег <option>:
+                            - option.value устанавливает значение для опции.
+                            - option.textContent задаёт текст, который видит пользователь.
+                            Добавляем созданный <option> в <select> с помощью appendChild.
+                         */
+                        data.forEach(child => {
+                            const option = document.createElement('option');
+                            option.value = child.id;
+                            option.textContent = child.fullUserStorageName;
+                            childSelect.appendChild(option);
+                        });
+                        /*
+                            После успешной загрузки скрываем сообщение "Загрузка" (display: none).
+                            Разблокируем второй <select> (disabled = false), чтобы пользователь мог выбрать из обновлённых опций.
+                         */
+                        loadingMessage.style.display = 'none';
+                        childSelect.disabled = false; // Разблокировать select
+                    })
+                    /*
+                        Если запрос завершился с ошибкой, выводим её в консоль с помощью console.error.
+                        Скрываем сообщение "Загрузка" и разблокируем второй <select>, чтобы интерфейс оставался доступным.
+                     */
+                    .catch(error => {
+                        console.error('Ошибка при загрузке данных:', error);
+
+                        // Скрыть сообщение "Загрузка..." даже при ошибке
+                        loadingMessage.style.display = 'none';
+                        childSelect.disabled = false;
+                    });
+            });
+        </script>
+
         <!-- Роль ------------------------------------------------------------------------------------------------->
         <#if isAdmin>
             <div class="form-group row my-3">
@@ -214,10 +296,11 @@
             </div>
         </div>
         <input type="hidden" name="_csrf" value="${_csrf.token}"/>
-        <input type="hidden" name="usernameOld" value="${userDTO.getUsername()}"/>
     </form>
     <#if message??>
         ${message}
     </#if>
+
+
 
 </@c.page>

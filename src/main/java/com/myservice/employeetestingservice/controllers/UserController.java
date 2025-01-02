@@ -1,16 +1,16 @@
 package com.myservice.employeetestingservice.controllers;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.myservice.employeetestingservice.domain.AccessLevel;
-import com.myservice.employeetestingservice.domain.Role;
-import com.myservice.employeetestingservice.domain.SpecAccess;
-import com.myservice.employeetestingservice.domain.User;
+import com.myservice.employeetestingservice.domain.*;
 import com.myservice.employeetestingservice.dto.UserDTO;
+import com.myservice.employeetestingservice.dto.UserStorageDTO;
+import com.myservice.employeetestingservice.mapper.UserMapper;
+import com.myservice.employeetestingservice.mapper.UserStorageMapper;
 import com.myservice.employeetestingservice.service.LogService;
 import com.myservice.employeetestingservice.service.UserService;
+import com.myservice.employeetestingservice.service.UserStorageService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import org.modelmapper.ModelMapper;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -28,8 +28,10 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class UserController {
     private final UserService userService;
-    private final ModelMapper modelMapper;
+    private final UserMapper userMapper;
+    private final UserStorageMapper userStorageMapper;
     private final LogService logService;
+    private final UserStorageService userStorageService;
 
     // получение списка пользователей ----------------------------------------------------------------------------------
     @PreAuthorize("hasAnyAuthority('ADMIN', 'MAIN_ADMIN')")
@@ -65,26 +67,34 @@ public class UserController {
 
     // получение профиля пользователя ----------------------------------------------------------------------------------
     @GetMapping("profile/{id}")
-    public String getProfileAnyUser(
+    public String getUserProfile(
             @AuthenticationPrincipal User userAuthentication,
             @PathVariable(name = "id") Integer id,
             Model model) {
         User userFromDb = userService.getUserById(id.longValue());
         //загрузка всего пользователя, т.к. аннотация @AuthenticationPrincipal всё не подгружает из БД
-        User fullUserAuthentication = userService.getUserByIdWithUserStorage(userAuthentication);
+        User fullUser = userService.getUserByIdWithUserStorage(userAuthentication);
+        UserDTO userDTO = userMapper.convertToDTOProfile(fullUser);
+        UserStorageDTO userStorageDTO = userStorageMapper.convertToDTOForProfile(fullUser.getUserStorage());
+
+        //если пользователь просматривает свой же профиль
         if (userAuthentication.getId() == userFromDb.getId()) {
-            return setModelFromProfileUser(fullUserAuthentication, true, model);
+            return setModelFromProfileUser(userDTO, userStorageDTO, model);
         } else {
+            //если профиль просматривает MainAdmin
             if (userAuthentication.isMainAdmin()) {
-                return setModelFromProfileUser(userFromDb, false, model);
-            } else if (userAuthentication.isAdmin()) {
+                return setModelFromProfileUser(userDTO, userStorageDTO, model);
+            }
+            //если профиль просматривает Admin
+            else if (userAuthentication.isAdmin()) {
+
                 if (!userFromDb.getRoles().contains(Role.MAIN_ADMIN) && !userFromDb.getRoles().contains(Role.ADMIN)) {
-                    return setModelFromProfileUser(userFromDb, false, model);
+                    return setModelFromProfileUser(userDTO, userStorageDTO, model);
                 } else {
-                    return setModelFromProfileUser(fullUserAuthentication, true, model);
+                    return setModelFromProfileUser(userDTO, userStorageDTO, model);
                 }
             } else {
-                return setModelFromProfileUser(fullUserAuthentication, true, model);
+                return setModelFromProfileUser(userDTO, userStorageDTO, model);
             }
         }
     }
@@ -96,17 +106,22 @@ public class UserController {
             @RequestParam String usernameNew,
             @RequestParam String passwordOld,
             @AuthenticationPrincipal User userAuthentication,
-            @RequestParam(required = false) String userStorageNameSelected,
+            @RequestParam(required = false) String primaryParentStorageNameSelected,
+            @RequestParam(required = false) int storageId_Selected,
             @RequestParam(required = false) String passwordNew,
             @RequestParam(required = false) String passwordNew2,
-            @PathVariable(required = false) String id,
-            @RequestParam(required = false) String usernameOld,
+            @PathVariable(required = false) int id,
             @RequestParam Map<String, String> form
     ) throws JsonProcessingException {
-        User userFromDb = userService.getUserById(Long.parseLong(id));
+        //получаем пользователя, для которого нужно обновить данные
+        User userFromDb = userService.getUserById(id);
+
+        //проверка поля ввода ФИО на пустоту
         if((usernameNew == null || usernameNew.isEmpty())){
             model.addAttribute("usernameNewError", "Поле не может быть пустым!");
         }
+
+        //проверяем меняем ли пароль
         boolean isChangePassword = false;
         if (!passwordNew.isEmpty() && !passwordNew2.isEmpty()){
             if (!passwordNew.equals(passwordNew2)){
@@ -114,28 +129,47 @@ public class UserController {
                 model.addAttribute("passwordNew2Error", Constants.PASSWORD_MISMATCH);
             } else {
                 isChangePassword = true;
+                //проверяем валидность старого пароля для смены на новый
+                if (!passwordOld.isEmpty() && !userService.checkOldPassword(passwordOld, userFromDb)){
+                    model.addAttribute("passwordOldError", "Вы ввели неправильный пароль");
+                }
             }
         }
-        if (!passwordOld.isEmpty() && !userService.checkOldPassword(passwordOld, userFromDb)){
-            model.addAttribute("passwordOldError", "Вы ввели неправильный пароль");
-        }
-        if (userService.loadUserByUsernameForUpdateUser(usernameNew) && !usernameNew.equals(usernameOld)){
+
+        //проверяем есть другой пользователь в БД с именем, которое хотим присвоить текущему пользователю userFromDb
+        if (userService.loadUserByUsernameForUpdateUser(usernameNew) && !usernameNew.equals(userFromDb.getUsername())){
             model.addAttribute("usernameNewError", Constants.USERNAME_FIND_ERROR);
         }
-        model.addAttribute("roles", Role.values());
-        model.addAttribute("accessLevels", AccessLevel.values());
-        model.addAttribute("specAccesses", SpecAccess.values());
-        UserDTO userDTO = modelMapper.map(userFromDb, UserDTO.class);
+
+        //Добавляем в модель необходимые поля для корректного отображения. Для оптимизации отправляемых данных их количество определяется ролью пользователя
+        if (userFromDb.isMainAdmin() && userFromDb.isAdmin()){
+            model.addAttribute("roles", Role.values());
+            model.addAttribute("accessLevels", AccessLevel.values());
+            model.addAttribute("specAccesses", SpecAccess.values());
+        }
+
+        //конвертируем пользователя
+        UserDTO userDTO = userMapper.convertToDTOProfile(userFromDb);
         userDTO.setUsername(usernameNew);
         model.addAttribute("userDTO", userDTO);
+
+        //конвертируем хранилище
+        UserStorage oldUserStorage = userFromDb.getUserStorage();
+        UserStorage newUserStorageDb = userStorageService.getUserStorageById(storageId_Selected);
+        UserStorageDTO userStorageDTO = userStorageMapper.convertToDTOForProfile(newUserStorageDb);
+        model.addAttribute("userStorageDTO", userStorageDTO);
+
+        //при наличии в model поля с вложенным словом "Error" возвращаем PROFILE_PAGE с ошибкой(-ами)
         if (model.asMap().keySet().stream().anyMatch(key->key.contains("Error"))){
             return Constants.PROFILE_PAGE;
         }
 
-        long idUserAuth = userAuthentication.getId();
-        long idUserDb = userFromDb.getId();
-        if (idUserAuth == idUserDb){
-            userService.updateUserFromDb(null, userFromDb, form);
+        //обновляем пользователя и хранилище
+        long authenticationId = userAuthentication.getId();
+        long userId = userFromDb.getId();
+        if (authenticationId == userId){
+            userService.updateUserFromDb( userFromDb, newUserStorageDb, form, null);
+            userStorageService.updateUserForStorage(oldUserStorage, newUserStorageDb, null, userFromDb);
             model.addAttribute("message", "Данные успешно обновлены!");
             if (isChangePassword){
                 return "redirect:/users/logout";
@@ -143,7 +177,8 @@ public class UserController {
                 return Constants.PROFILE_PAGE;
             }
         } else {
-            userService.updateUserFromDb(userAuthentication, userFromDb, form);
+            userService.updateUserFromDb(userFromDb, newUserStorageDb, form, userAuthentication);
+            userStorageService.updateUserForStorage(oldUserStorage, newUserStorageDb, userAuthentication, userFromDb);
             return "redirect:/users";
         }
     }
@@ -159,20 +194,13 @@ public class UserController {
     }
 //----------------------------------------------------------------------------------------------------------------------
 
-    private UserDTO converteToUserDTO(User user){
-        return modelMapper.map(user, UserDTO.class);
-    }
 
-    private User converteToUser(UserDTO userDTO){
-        return modelMapper.map(userDTO, User.class);
-    }
-
-    private String setModelFromProfileUser(User user, boolean isCurrentUser, Model model) {
+    private String setModelFromProfileUser(UserDTO userDTO, UserStorageDTO userStorageDTO, Model model) {
         model.addAttribute("roles", Role.values());
         model.addAttribute("accessLevels", AccessLevel.values());
         model.addAttribute("specAccesses", SpecAccess.values());
-        UserDTO userDTO = modelMapper.map(user, UserDTO.class);
         model.addAttribute("userDTO", userDTO);
+        model.addAttribute("userStorageDTO", userStorageDTO);
         return Constants.PROFILE_PAGE;
     }
 

@@ -3,7 +3,6 @@ package com.myservice.employeetestingservice.dto;
 import com.myservice.employeetestingservice.domain.AccessLevel;
 import com.myservice.employeetestingservice.domain.Role;
 import com.myservice.employeetestingservice.domain.SpecAccess;
-import com.myservice.employeetestingservice.domain.UserStorage;
 import jakarta.persistence.OrderBy;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -29,6 +28,10 @@ public class UserDTO {
     @OrderBy
     private List<Role> roles;
 
+    public boolean isMainAdmin;
+    private boolean isAdmin;
+    public boolean isUser;
+
     @OrderBy
     private List<AccessLevel> accessLevels;
 
@@ -45,5 +48,5 @@ public class UserDTO {
         return roles.contains(Role.MAIN_ADMIN);
     }
 
-    private UserStorage userStorage;
+    private UserStorageDTO userStorageDTO;
 }

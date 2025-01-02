@@ -89,4 +89,21 @@ public class UserStorage {
     public final int hashCode() {
         return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
+
+    public static Set<UserStorage> getAllNestedChildUserStorages(UserStorage rootStorage) {
+        Set<UserStorage> result = new HashSet<>();
+        collectChildStorages(rootStorage, result);
+        return result;
+    }
+
+    private static void collectChildStorages(UserStorage storage, Set<UserStorage> result) {
+        if (storage == null || storage.getChildUserStorages() == null) {
+            return;
+        }
+        for (UserStorage child : storage.getChildUserStorages()) {
+            if (result.add(child)) { // Проверяем, добавлен ли элемент, чтобы избежать зацикливания
+                collectChildStorages(child, result);
+            }
+        }
+    }
 }
