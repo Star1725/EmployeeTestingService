@@ -53,10 +53,12 @@ public class UserService implements UserDetailsService{
         return true;
     }
 
-    public void deleteUser(Long id, User userAuthentication) throws JsonProcessingException {
-        User userFromDB = userRepository.findById(id).get();
+    public void deleteUser(int id, User userAuthentication) throws JsonProcessingException {
+        User userFromDB = userRepository.getReferenceById((long) id);
+        UserStorage userStorageDb = userFromDB.getUserStorage();
+
         logService.writeUserLog(userAuthentication, "администратор удалил пользователя - \"" + userFromDB.getUsername() + "\"");
-        userRepository.deleteById(id);
+        userRepository.deleteById((long) id);
     }
 
 //    public void writeLogFile(User userSource, String message) {

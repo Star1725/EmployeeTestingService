@@ -60,8 +60,11 @@ public class UserController {
     @GetMapping("/delete/{id}")
     public String deleteUser(
             @AuthenticationPrincipal User userAuthentication,
-            @PathVariable("id") Integer id) throws JsonProcessingException {
-        userService.deleteUser((long)id, userAuthentication);
+            @PathVariable(required = false) int id) throws JsonProcessingException {
+        User userFromDb = userService.getUserById(id);
+        userStorageService.deleteUserForStorage(userFromDb.getUserStorage(), userFromDb, userAuthentication);
+        userService.deleteUser(id, userAuthentication);
+
         return "redirect:/users";
     }
 
@@ -69,9 +72,9 @@ public class UserController {
     @GetMapping("profile/{id}")
     public String getUserProfile(
             @AuthenticationPrincipal User userAuthentication,
-            @PathVariable(name = "id") Integer id,
+            @PathVariable(required = false) int id,
             Model model) {
-        User userFromDb = userService.getUserById(id.longValue());
+        User userFromDb = userService.getUserById(id);
         //загрузка всего пользователя, т.к. аннотация @AuthenticationPrincipal всё не подгружает из БД
         User fullUser = userService.getUserByIdWithUserStorage(userAuthentication);
         UserDTO userDTO = userMapper.convertToDTOProfile(fullUser);

@@ -168,10 +168,10 @@ public class UserStorageController {
     @ResponseBody
     public List<UserStorageDTO> getChildStorages(@PathVariable Long id) {
         UserStorage parentStorage = userStorageService.getUserStorageRepository().getReferenceById(id);
-        Set<UserStorage> childStorages = parentStorage.getChildUserStorages();
+        Set<UserStorage> childStorages = UserStorage.getAllNestedChildUserStorages(parentStorage);
         return childStorages.stream()
                 .map(userStorageMapper::convertToDTO)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     //------------------------------------------------------------------------------------------------------------------

@@ -13,7 +13,7 @@ public class MyConfig {
 //    public PasswordEncoder getPasswordEncoder() {
 //        return new BCryptPasswordEncoder(8);
 //    }
-        @Bean
+    @Bean
     public PasswordEncoder getPasswordEncoder() {
         return NoOpPasswordEncoder.getInstance();
     }
