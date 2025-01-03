@@ -110,6 +110,7 @@ public class UserStorageService {
             }
             userStorageDb.getChildUserStorages().clear(); // Удаляем ссылки на дочерние элементы
         }
+
         // Если это дочернее хранилище, обновить родительское хранилище
         if (userStorageDb.isChildStorage()) {
             UserStorage parentUserStorage = userStorageDb.getParentUserStorage();
@@ -119,6 +120,14 @@ public class UserStorageService {
                 logService.writeStorageLog(parentUserStorage, "Удалено дочернее подразделение - \"" + userStorageDb.getUserStorageName() + "\"");
                 idParentStorage = String.valueOf(parentUserStorage.getId());
             }
+        }
+
+        //если в хранилище были пользователи
+        if (userStorageDb.getStorageUsers() != null && !userStorageDb.getStorageUsers().isEmpty()){
+            for (User user: userStorageDb.getStorageUsers()) {
+                user.setUserStorage(null);
+            }
+            userStorageDb.getStorageUsers().clear();
         }
 
         logService.writeUserLog(userAuthentication, "Администратор удалил хранилище - \"" + userStorageDb.getUserStorageName() + "\"");

@@ -72,8 +72,8 @@
                         </td>
                         <#--Количество сотрудников-->
                         <td>
-                            <#if storage.storageUsers??>
-                                ${storage.storageUsers?size}
+                            <#if storage??>
+                                ${storage.getAllNestedStorageUsers(storage)?size}
                             </#if>
                         </td>
                         <#--Средний балл-->

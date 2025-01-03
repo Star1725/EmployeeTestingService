@@ -58,8 +58,6 @@
             </div>
         </div>
 
-        <div id="loadingMessage" style="display: none;">Загрузка...</div>
-
         <!-- Администратор подразделения / подразделение -------------------------------------------------------------->
             <div class="form-group row my-2">
                 <label class="col-sm-2 col-form-label">
@@ -87,6 +85,7 @@
                         </#list>
                     </select>
                 </div>
+                <div class="col-sm-3" id="loadingMessage" style="display: none;">Загрузка...</div>
             </div>
 
         <#--скрипт динамтчески подгружающий список дочерних подразделений в тег <select id="storageName_Selected"> в зависимости от организации, выбранной в <select id="parentStorageName_Selected">>-->

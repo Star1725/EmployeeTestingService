@@ -76,9 +76,9 @@ public class UserController {
             Model model) {
         User userFromDb = userService.getUserById(id);
         //загрузка всего пользователя, т.к. аннотация @AuthenticationPrincipal всё не подгружает из БД
-        User fullUser = userService.getUserByIdWithUserStorage(userAuthentication);
-        UserDTO userDTO = userMapper.convertToDTOProfile(fullUser);
-        UserStorageDTO userStorageDTO = userStorageMapper.convertToDTOForProfile(fullUser.getUserStorage());
+//        User fullUserAuthentication = userService.getUserByIdWithUserStorage(userAuthentication);
+        UserDTO userDTO = userMapper.convertToDTOProfile(userFromDb);
+        UserStorageDTO userStorageDTO = userStorageMapper.convertToDTOForProfile(userFromDb.getUserStorage());
 
         //если пользователь просматривает свой же профиль
         if (userAuthentication.getId() == userFromDb.getId()) {
@@ -110,7 +110,7 @@ public class UserController {
             @RequestParam String passwordOld,
             @AuthenticationPrincipal User userAuthentication,
             @RequestParam(required = false) String primaryParentStorageNameSelected,
-            @RequestParam(required = false) int storageId_Selected,
+            @RequestParam(required = false) String storageId_Selected,
             @RequestParam(required = false) String passwordNew,
             @RequestParam(required = false) String passwordNew2,
             @PathVariable(required = false) int id,
@@ -158,7 +158,13 @@ public class UserController {
 
         //конвертируем хранилище
         UserStorage oldUserStorage = userFromDb.getUserStorage();
-        UserStorage newUserStorageDb = userStorageService.getUserStorageById(storageId_Selected);
+        UserStorage newUserStorageDb = null;
+        if (storageId_Selected != null && !storageId_Selected.isEmpty()){
+            int storageId = Integer.parseInt(storageId_Selected);
+            newUserStorageDb = userStorageService.getUserStorageById(storageId);
+        } else {
+            newUserStorageDb = userStorageService.getUserStorageByUsersStorageName(primaryParentStorageNameSelected);
+        }
         UserStorageDTO userStorageDTO = userStorageMapper.convertToDTOForProfile(newUserStorageDb);
         model.addAttribute("userStorageDTO", userStorageDTO);
 

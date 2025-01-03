@@ -90,6 +90,15 @@ public class UserStorage {
         return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
 
+    public Set<User> getAllNestedStorageUsers(UserStorage rootStorage){
+        Set<User> result = new HashSet<>();
+        for (UserStorage storage : getAllNestedChildUserStorages(rootStorage)) {
+            result.addAll(storage.getStorageUsers());
+        }
+        result.addAll(this.getStorageUsers());
+        return result;
+    }
+
     public static Set<UserStorage> getAllNestedChildUserStorages(UserStorage rootStorage) {
         Set<UserStorage> result = new HashSet<>();
         collectChildStorages(rootStorage, result);
