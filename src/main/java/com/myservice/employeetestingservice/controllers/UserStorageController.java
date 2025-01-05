@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.myservice.employeetestingservice.controllers.Constants.*;
 
@@ -38,7 +37,7 @@ public class UserStorageController {
     public String getAllUserStorages(@AuthenticationPrincipal User userAdmin, Model model) {
         Set<UserStorage> userStorages = userStorageService.getAllUserStoragesWithDefaultParent();
         model.addAttribute(USER_STORAGES, userStorages);
-        return "userStoragesPage";
+        return "userStoragesList";
     }
 
     // получение списка конкретной организации/подразделения ----------------------------------------------------------------------
@@ -56,7 +55,7 @@ public class UserStorageController {
         model.addAttribute(PARENT_USER_STORAGE, parentUserStorage);
         model.addAttribute(ALL_PARENT_STORAGES_NAMES, allParentStoragesNames);
         model.addAttribute(USER_STORAGES, userStorages);
-        return USER_STORAGE_PAGE;
+        return USER_STORAGES_LIST;
     }
 
     // добавление организации/подразделения ----------------------------------------------------------------------------
@@ -85,7 +84,7 @@ public class UserStorageController {
             model.addAttribute(ALL_PARENT_STORAGES_NAMES, allParentStoragesNames);
             model.addAttribute(USER_STORAGES, userStorages);
             model.addAttribute("userStorage", userStorageDTO);
-            return Constants.USER_STORAGE_PAGE;
+            return Constants.USER_STORAGES_LIST;
         }
 
         UserStorage userStorage = convertToUsersStorage(userStorageDTO);
@@ -95,7 +94,7 @@ public class UserStorageController {
             model.addAttribute(ALL_PARENT_STORAGES_NAMES, allParentStoragesNames);
             model.addAttribute(USER_STORAGES, userStorages);
             model.addAttribute("userStorage", userStorageDTO);
-            return Constants.USER_STORAGE_PAGE;
+            return Constants.USER_STORAGES_LIST;
         }
         return redirectUserStoragePage(parentUserStorage);
     }
@@ -130,7 +129,7 @@ public class UserStorageController {
             model.addAttribute(PARENT_USER_STORAGE, parentUserStorage);
             model.addAttribute(ALL_PARENT_STORAGES_NAMES, allParentStoragesNames);
             model.addAttribute(USER_STORAGES, userStorages);
-            return Constants.USER_STORAGE_PAGE;
+            return Constants.USER_STORAGES_LIST;
         }
         
         if (userStorageService.updateUserStorage(updatedUserStorage, userAdmin, parentUserStorage)) {
@@ -148,7 +147,7 @@ public class UserStorageController {
             model.addAttribute(ALL_PARENT_STORAGES_NAMES, allParentStoragesNames);
             model.addAttribute(USER_STORAGES, userStorages);
             model.addAttribute("updatedUserStorage", updatedUserStorage);
-            return USER_STORAGE_PAGE;
+            return USER_STORAGES_LIST;
         }
         return redirectUserStoragePage(parentUserStorage);
     }
@@ -169,6 +168,7 @@ public class UserStorageController {
     public List<UserStorageDTO> getChildStorages(@PathVariable Long id) {
         UserStorage parentStorage = userStorageService.getUserStorageRepository().getReferenceById(id);
         Set<UserStorage> childStorages = UserStorage.getAllNestedChildUserStorages(parentStorage);
+        childStorages.add(parentStorage);
         return childStorages.stream()
                 .map(userStorageMapper::convertToDTO)
                 .toList();

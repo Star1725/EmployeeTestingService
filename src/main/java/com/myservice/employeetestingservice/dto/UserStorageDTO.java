@@ -26,6 +26,7 @@ public class UserStorageDTO {
     private UserStorageDTO parentStorage;
 
     private UserStorageDTO primaryParentStorage;
+    private UserStorageDTO defaultPrimaryParentStorage;
     private Set<UserStorageDTO> allPrimaryParentStorages;
     private Set<UserStorageDTO> allChildStoragesForPrimaryParent;
 }

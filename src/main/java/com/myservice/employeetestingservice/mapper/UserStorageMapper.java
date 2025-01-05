@@ -26,6 +26,7 @@ public class UserStorageMapper {
             primaryParentStorages.add(convertToDTO(storage));
         }
         userStorageDTO.setAllPrimaryParentStorages(primaryParentStorages);
+        userStorageDTO.setDefaultPrimaryParentStorage(convertToDTO(userStorageService.getDefaultUserStorage()));
 
         if (userStorage != null){
             //добавление первичного родительского хранилища (организации)

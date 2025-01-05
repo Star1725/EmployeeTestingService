@@ -145,7 +145,7 @@ public class UserController {
         }
 
         //Добавляем в модель необходимые поля для корректного отображения. Для оптимизации отправляемых данных их количество определяется ролью пользователя
-        if (userFromDb.isMainAdmin() && userFromDb.isAdmin()){
+        if (userFromDb.isAdmin()){
             model.addAttribute("roles", Role.values());
             model.addAttribute("accessLevels", AccessLevel.values());
             model.addAttribute("specAccesses", SpecAccess.values());

@@ -4,7 +4,7 @@ public class Constants {
     public static final String REGISTRATION_PAGE = "registration";
     public static final String PROFILE_PAGE = "profile";
 
-    public static final String USER_STORAGE_PAGE = "userStoragesPage";
+    public static final String USER_STORAGES_LIST = "userStoragesList";
     public static final String PARENT_USER_STORAGE = "parentUserStorage";
     public static final String ALL_PARENT_STORAGES_NAMES = "allParentStoragesNames";
     public static final String USER_STORAGES = "userStorages";
