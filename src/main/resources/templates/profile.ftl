@@ -44,21 +44,28 @@
                         aria-label=".form-select-sm-2"
                         id="primaryParentStorageNameSelected">
                     <option selected>
-                        <#if userStorageDTO.primaryParentStorage??>
-                            ${userStorageDTO.primaryParentStorage.userStorageName}
+                        <#if userDTO.isMainAdmin()>
+                            ${userStorageDTO.defaultPrimaryParentStorage.userStorageName}
+                        <#else >
+                            <#if userStorageDTO.primaryParentStorage??>
+                                ${userStorageDTO.primaryParentStorage.userStorageName}
+                            </#if>
                         </#if>
                     </option>
-                    <#list userStorageDTO.allPrimaryParentStorages! as primaryParentStorage>
+                    <#if !userDTO.isMainAdmin()>
+                        <#list userStorageDTO.allPrimaryParentStorages! as primaryParentStorage>
                         <option value="${primaryParentStorage.getId()}"
                                 name="primaryParentStorageNameSelected"
                         >${primaryParentStorage.userStorageName}
                         </option>
                     </#list>
+                    </#if>
                 </select>
             </div>
         </div>
 
         <!-- Администратор подразделения / подразделение -------------------------------------------------------------->
+        <#if !userDTO.isMainAdmin()>
             <div class="form-group row my-2">
                 <label class="col-sm-2 col-form-label">
                     <#if userDTO.isAdmin()>
@@ -79,7 +86,7 @@
                             </#if>
                         </option>
                         <#list userStorageDTO.allChildStoragesForPrimaryParent! as childStorage>
-                            <option value=""
+                            <option value="${childStorage.id}"
                                     name="storageId_Selected"
                             >${childStorage.fullUserStorageName}</option>
                         </#list>
@@ -87,6 +94,7 @@
                 </div>
                 <div class="col-sm-3" id="loadingMessage" style="display: none;">Загрузка...</div>
             </div>
+        </#if>
 
         <#--скрипт динамтчески подгружающий список дочерних подразделений в тег <select id="storageName_Selected"> в зависимости от организации, выбранной в <select id="parentStorageName_Selected">>-->
         <script>
