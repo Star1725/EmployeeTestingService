@@ -9,6 +9,7 @@ import org.hibernate.proxy.HibernateProxy;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -90,8 +91,8 @@ public class UserStorage {
         return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
 
-    public Set<User> getAllNestedStorageUsers(UserStorage rootStorage){
-        Set<User> result = new HashSet<>();
+    public List<User> getAllNestedStorageUsers(UserStorage rootStorage){
+        List<User> result = new java.util.ArrayList<>(List.of());
         for (UserStorage storage : getAllNestedChildUserStorages(rootStorage)) {
             result.addAll(storage.getStorageUsers());
         }

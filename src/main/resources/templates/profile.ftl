@@ -182,7 +182,7 @@
                                             ${userDTO.roles?seq_contains(role)?string("checked disabled", "disabled")}
                                         <#else>
                                             <#if rolesUserContext?seq_contains(role)>
-                                                <#if role == "MAIN_ADMIN"> disabled
+                                                <#if role == "MAIN_ADMIN" || role == "ADMIN"> disabled
                                                 <#else>
                                                     <#if userDTO.roles?seq_contains(role)>checked
                                                     <#else>

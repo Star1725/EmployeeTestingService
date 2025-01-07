@@ -36,21 +36,17 @@ public class UserController {
     // получение списка пользователей ----------------------------------------------------------------------------------
     @PreAuthorize("hasAnyAuthority('ADMIN', 'MAIN_ADMIN')")
     @GetMapping
-    public String getUserList(@AuthenticationPrincipal User userAdmin, Model model) {
-        List<User> userList = userService.findAll();
+    public String getUserList(@AuthenticationPrincipal User userAuthentication, Model model) {
         List<User> filteredSortedUsers;
-            filteredSortedUsers = userList.stream()
-                    .sorted(Comparator.comparing((User user) -> {
-                                if (user.getRoles().contains(Role.MAIN_ADMIN)) {
-                                    return 0; // Высший приоритет
-                                } else if (user.getRoles().contains(Role.ADMIN)) {
-                                    return 1; // Средний приоритет
-                                } else {
-                                    return 2; // Низший приоритет
-                                }
-                            })
-                            .thenComparing(User::getUsername)) // Дополнительно сортируем по username в алфавитном порядке
-                    .toList();
+        User fullUserAuthentication = userService.getUserByIdWithUserStorage(userAuthentication);
+        if (fullUserAuthentication.isMainAdmin()){
+            List<User> userList = userService.findAll();
+            filteredSortedUsers = sortingListByRoleByName(userList);
+        } else {
+            UserStorage userStorageDb = fullUserAuthentication.getUserStorage();
+            filteredSortedUsers = sortingListByRoleByName(userStorageDb.getAllNestedStorageUsers(userStorageDb));
+        }
+
         model.addAttribute("users", filteredSortedUsers);
         return "usersList";
     }
@@ -75,21 +71,21 @@ public class UserController {
             @PathVariable(required = false) int id,
             Model model) {
         User userFromDb = userService.getUserById(id);
-        //загрузка всего пользователя, т.к. аннотация @AuthenticationPrincipal всё не подгружает из БД
-//        User fullUserAuthentication = userService.getUserByIdWithUserStorage(userAuthentication);
+        User fullUserAuthentication = userService.getUserByIdWithUserStorage(userAuthentication);
+
         UserDTO userDTO = userMapper.convertToDTOProfile(userFromDb);
-        UserStorageDTO userStorageDTO = userStorageMapper.convertToDTOForProfile(userFromDb.getUserStorage());
+        UserStorageDTO userStorageDTO = userStorageMapper.convertToDTOForProfile(userFromDb.getUserStorage(), fullUserAuthentication);
 
         //если пользователь просматривает свой же профиль
-        if (userAuthentication.getId() == userFromDb.getId()) {
+        if (fullUserAuthentication.getId() == userFromDb.getId()) {
             return setModelFromProfileUser(userDTO, userStorageDTO, model);
         } else {
             //если профиль просматривает MainAdmin
-            if (userAuthentication.isMainAdmin()) {
+            if (fullUserAuthentication.isMainAdmin()) {
                 return setModelFromProfileUser(userDTO, userStorageDTO, model);
             }
             //если профиль просматривает Admin
-            else if (userAuthentication.isAdmin()) {
+            else if (fullUserAuthentication.isAdmin()) {
 
                 if (!userFromDb.getRoles().contains(Role.MAIN_ADMIN) && !userFromDb.getRoles().contains(Role.ADMIN)) {
                     return setModelFromProfileUser(userDTO, userStorageDTO, model);
@@ -116,8 +112,9 @@ public class UserController {
             @PathVariable(required = false) int id,
             @RequestParam Map<String, String> form
     ) throws JsonProcessingException {
-        //получаем пользователя, для которого нужно обновить данные
+        //получаем пользователя, для которого нужно обновить данные и полного администратора
         User userFromDb = userService.getUserById(id);
+        User fullUserAuthentication = userService.getUserByIdWithUserStorage(userAuthentication);
 
         //проверка поля ввода ФИО на пустоту
         if((usernameNew == null || usernameNew.isEmpty())){
@@ -165,7 +162,7 @@ public class UserController {
         } else {
             newUserStorageDb = userStorageService.getUserStorageByUsersStorageName(primaryParentStorageNameSelected);
         }
-        UserStorageDTO userStorageDTO = userStorageMapper.convertToDTOForProfile(newUserStorageDb);
+        UserStorageDTO userStorageDTO = userStorageMapper.convertToDTOForProfile(newUserStorageDb, fullUserAuthentication);
         model.addAttribute("userStorageDTO", userStorageDTO);
 
         //при наличии в model поля с вложенным словом "Error" возвращаем PROFILE_PAGE с ошибкой(-ами)
@@ -174,7 +171,7 @@ public class UserController {
         }
 
         //обновляем пользователя и хранилище
-        long authenticationId = userAuthentication.getId();
+        long authenticationId = fullUserAuthentication.getId();
         long userId = userFromDb.getId();
         if (authenticationId == userId){
             userService.updateUserFromDb( userFromDb, newUserStorageDb, form, null);
@@ -186,8 +183,8 @@ public class UserController {
                 return Constants.PROFILE_PAGE;
             }
         } else {
-            userService.updateUserFromDb(userFromDb, newUserStorageDb, form, userAuthentication);
-            userStorageService.updateUserForStorage(oldUserStorage, newUserStorageDb, userAuthentication, userFromDb);
+            userService.updateUserFromDb(userFromDb, newUserStorageDb, form, fullUserAuthentication);
+            userStorageService.updateUserForStorage(oldUserStorage, newUserStorageDb, fullUserAuthentication, userFromDb);
             return "redirect:/users";
         }
     }
@@ -213,6 +210,20 @@ public class UserController {
         return Constants.PROFILE_PAGE;
     }
 
+    private List<User> sortingListByRoleByName(List<User> userList){
+        return userList.stream()
+                .sorted(Comparator.comparing((User user) -> {
+                            if (user.getRoles().contains(Role.MAIN_ADMIN)) {
+                                return 0; // Высший приоритет
+                            } else if (user.getRoles().contains(Role.ADMIN)) {
+                                return 1; // Средний приоритет
+                            } else {
+                                return 2; // Низший приоритет
+                            }
+                        })
+                        .thenComparing(User::getUsername)) // Дополнительно сортируем по username в алфавитном порядке
+                .toList();
+    }
 }
 
 

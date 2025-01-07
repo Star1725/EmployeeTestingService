@@ -1,5 +1,6 @@
 package com.myservice.employeetestingservice.mapper;
 
+import com.myservice.employeetestingservice.domain.User;
 import com.myservice.employeetestingservice.domain.UserStorage;
 import com.myservice.employeetestingservice.dto.UserStorageDTO;
 import com.myservice.employeetestingservice.service.UserStorageService;
@@ -14,23 +15,31 @@ public class UserStorageMapper {
     private final UserStorageService userStorageService;
 
     //конвертация хранилища пользователей для отображения на Profile.ftl
-    public UserStorageDTO convertToDTOForProfile(UserStorage userStorage) {
+    public UserStorageDTO convertToDTOForProfile(UserStorage userStorageDb, User userAuthentication) {
         UserStorageDTO userStorageDTO = new UserStorageDTO();
-        if (userStorage != null){
-            userStorageDTO = convertToDTO(userStorage);
+        if (userStorageDb != null){
+            userStorageDTO = convertToDTO(userStorageDb);
         }
 
-        //добавление списка всех первичных родительских хранилищ (организаций)
+        //Далее заполнение полей для UserStorageDTO будет определяться ролью userAuthentication
         Set<UserStorageDTO> primaryParentStorages = new java.util.HashSet<>(Set.of());
-        for (UserStorage storage : userStorageService.getAllUserStoragesWithDefaultParent()) {
-            primaryParentStorages.add(convertToDTO(storage));
+        //Для MAIN_ADMIN добавляем список всех первичных родительских хранилищ (организаций)
+
+        if (userAuthentication != null && userAuthentication.isMainAdmin()) {
+            for (UserStorage storage : userStorageService.getAllUserStoragesWithDefaultParent()) {
+                primaryParentStorages.add(convertToDTO(storage));
+            }
+        //Для ADMIN добавляем в список всех первичных родительских хранилищ (организаций) только первичное родительское хранилище дял ADMIN
+        } else if (userAuthentication != null && userAuthentication.isAdmin()){
+            UserStorage primaryUserStorage = userStorageService.getPrimaryUserStorage(userAuthentication.getUserStorage());
+            primaryParentStorages.add(convertToDTO(primaryUserStorage));
         }
         userStorageDTO.setAllPrimaryParentStorages(primaryParentStorages);
         userStorageDTO.setDefaultPrimaryParentStorage(convertToDTO(userStorageService.getDefaultUserStorage()));
 
-        if (userStorage != null){
+        if (userStorageDb != null){
             //добавление первичного родительского хранилища (организации)
-            UserStorage primaryUserStorage = userStorageService.getPrimaryUserStorage(userStorage);
+            UserStorage primaryUserStorage = userStorageService.getPrimaryUserStorage(userStorageDb);
             userStorageDTO.setPrimaryParentStorage(convertToDTO(primaryUserStorage));
             //добавление списка всех дочерних подразделений первичного родительского хранилища (организации)
             Set<UserStorageDTO> allChildStoragesForPrimaryParent = new java.util.HashSet<>(Set.of());
