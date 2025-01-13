@@ -80,7 +80,8 @@
                             name="storageId_Selected"
                             aria-label=".form-select-sm-2"
                             id="storageName_Selected">
-                        <option selected>
+                        <option selected
+                        value="<#if userStorageDTO.id??>${userStorageDTO.id}</#if>">
                             <#if userStorageDTO.fullUserStorageName??>
                                 ${userStorageDTO.fullUserStorageName}
                             </#if>
@@ -182,10 +183,19 @@
                                             ${userDTO.roles?seq_contains(role)?string("checked disabled", "disabled")}
                                         <#else>
                                             <#if rolesUserContext?seq_contains(role)>
-                                                <#if role == "MAIN_ADMIN" || role == "ADMIN"> disabled
-                                                <#else>
-                                                    <#if userDTO.roles?seq_contains(role)>checked
+                                                <#if isMainAdmin>
+                                                    <#if role == "MAIN_ADMIN"> disabled
                                                     <#else>
+                                                        <#if userDTO.roles?seq_contains(role)>checked
+                                                        <#else>
+                                                        </#if>
+                                                    </#if>
+                                                <#else>
+                                                    <#if role == "MAIN_ADMINADMIN" || role == "ADMIN"> disabled
+                                                    <#else>
+                                                        <#if userDTO.roles?seq_contains(role)>checked
+                                                        <#else>
+                                                        </#if>
                                                     </#if>
                                                 </#if>
                                             <#else>disabled
