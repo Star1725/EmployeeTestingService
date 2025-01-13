@@ -2,6 +2,9 @@ package com.myservice.employeetestingservice.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.myservice.employeetestingservice.domain.*;
+import com.myservice.employeetestingservice.dto.UserDTO;
+import com.myservice.employeetestingservice.mapper.UserMapper;
+import com.myservice.employeetestingservice.mapper.UserStorageMapper;
 import com.myservice.employeetestingservice.repository.UserRepository;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +25,8 @@ public class UserService implements UserDetailsService{
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final LogService logService;
+    private final UserMapper userMapper;
+    private final UserStorageMapper userStorageMapper;
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
@@ -30,10 +35,6 @@ public class UserService implements UserDetailsService{
             throw new UsernameNotFoundException("Пользователь не найден!");
         }
         return user;
-    }
-
-    public List<User> findAll() {
-        return userRepository.findAll();
     }
 
     public boolean createUserFromRegistrationPage(User user) throws JsonProcessingException {
@@ -55,33 +56,9 @@ public class UserService implements UserDetailsService{
 
     public void deleteUser(int id, User userAuthentication) throws JsonProcessingException {
         User userFromDB = userRepository.getReferenceById((long) id);
-        UserStorage userStorageDb = userFromDB.getUserStorage();
-
         logService.writeUserLog(userAuthentication, "администратор удалил пользователя - \"" + userFromDB.getUsername() + "\"");
         userRepository.deleteById((long) id);
     }
-
-//    public void writeLogFile(User userSource, String message) {
-//        LocalDateTime time = LocalDateTime.now();
-//        String dateTime = time.toString();
-//        if (userSource.getLogFile() == null || userSource.getLogFile().isEmpty()) {
-//            userSource.setLogFile("{}");
-//        }
-//        String logFile = userSource.getLogFile();
-//        Map<String, String> mapLog;
-//        try {
-//            mapLog = new ObjectMapper().readValue(logFile, new TypeReference<>() {});
-//        } catch (JsonProcessingException e) {
-//            throw new RuntimeException(e);
-//        }
-//        mapLog.put(dateTime, userSource.getUsername() + ": " + message);
-//        try {
-//            logFile = new ObjectMapper().writeValueAsString(mapLog);
-//        } catch (JsonProcessingException e) {
-//            throw new RuntimeException(e);
-//        }
-//        userSource.setLogFile(logFile);
-//    }
 
     public User getUserById(long id) {
         return userRepository.getReferenceById(id);
@@ -172,5 +149,49 @@ public class UserService implements UserDetailsService{
     public User getUserByIdWithUserStorage(User user){
         User userBuff = userRepository.findByIdWithUserStorage(user.getId()); // Загрузка с использованием JOIN FETCH
         return userBuff;
+    }
+
+//******************************************************************************************************************
+
+// Получение списка пользователей в зависимости от роли администратора
+    public List<UserDTO> getAllUsersForRoleAdmin(User adminUser) {
+        List<User> filteredSortedUsers;
+        User fullUserAuthentication = getUserByIdWithUserStorage(adminUser);
+        //Для MAIN_ADMIN показываем всех пользователей
+        if (fullUserAuthentication.isMainAdmin()){
+            List<User> userList = findAll();
+            filteredSortedUsers = sortingListByRoleByName(userList);
+            //Для ADMIN показываем только его пользователей
+        } else {
+            UserStorage userStorageDb = fullUserAuthentication.getUserStorage();
+            filteredSortedUsers = sortingListByRoleByName(userStorageDb.getAllNestedStorageUsers(userStorageDb));
+        }
+        return userMapper.convertToDTOList(filteredSortedUsers);
+    }
+
+    public List<User> findAll() {
+        return userRepository.findAll();
+    }
+
+    public List<User> sortingListByRoleByName(List<User> userList){
+        return userList.stream()
+                .sorted(Comparator.comparing((User user) -> {
+                            if (user.getRoles().contains(Role.MAIN_ADMIN)) {
+                                return 0; // Высший приоритет
+                            } else if (user.getRoles().contains(Role.ADMIN)) {
+                                return 1; // Средний приоритет
+                            } else {
+                                return 2; // Низший приоритет
+                            }
+                        })
+                        .thenComparing(User::getUsername)) // Дополнительно сортируем по username в алфавитном порядке
+                .toList();
+    }
+
+// получение списка пользователей для конкретного хранилища ------------------------------------------------------------
+    public List<UserDTO> getUsersByStorageId(UserStorage userStorage) {
+        List<User> filteredSortedUsers;
+        filteredSortedUsers = sortingListByRoleByName(userStorage.getAllNestedStorageUsers(userStorage));
+        return userMapper.convertToDTOList(filteredSortedUsers);
     }
 }

@@ -23,9 +23,8 @@ public class UserStorageMapper {
 
         //Далее заполнение полей для UserStorageDTO будет определяться ролью userAuthentication
         Set<UserStorageDTO> primaryParentStorages = new java.util.HashSet<>(Set.of());
-        //Для MAIN_ADMIN добавляем список всех первичных родительских хранилищ (организаций)
-
-        if (userAuthentication != null && userAuthentication.isMainAdmin()) {
+        //Для MAIN_ADMIN или если userStorageDb == null, добавляем список всех первичных родительских хранилищ (организаций)
+        if (userAuthentication != null && userAuthentication.isMainAdmin() || userStorageDb == null) {
             for (UserStorage storage : userStorageService.getAllUserStoragesWithDefaultParent()) {
                 primaryParentStorages.add(convertToDTO(storage));
             }

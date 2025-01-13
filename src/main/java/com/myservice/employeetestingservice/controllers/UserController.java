@@ -6,7 +6,6 @@ import com.myservice.employeetestingservice.dto.UserDTO;
 import com.myservice.employeetestingservice.dto.UserStorageDTO;
 import com.myservice.employeetestingservice.mapper.UserMapper;
 import com.myservice.employeetestingservice.mapper.UserStorageMapper;
-import com.myservice.employeetestingservice.service.LogService;
 import com.myservice.employeetestingservice.service.UserService;
 import com.myservice.employeetestingservice.service.UserStorageService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,7 +18,6 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -30,26 +28,30 @@ public class UserController {
     private final UserService userService;
     private final UserMapper userMapper;
     private final UserStorageMapper userStorageMapper;
-    private final LogService logService;
     private final UserStorageService userStorageService;
 
-    // получение списка пользователей ----------------------------------------------------------------------------------
+    // получение списка пользователей с учётом профиля администратора --------------------------------------------------
     @PreAuthorize("hasAnyAuthority('ADMIN', 'MAIN_ADMIN')")
     @GetMapping
-    public String getUserList(@AuthenticationPrincipal User userAuthentication, Model model) {
-        List<User> filteredSortedUsers;
-        User fullUserAuthentication = userService.getUserByIdWithUserStorage(userAuthentication);
-        if (fullUserAuthentication.isMainAdmin()){
-            List<User> userList = userService.findAll();
-            filteredSortedUsers = sortingListByRoleByName(userList);
-        } else {
-            UserStorage userStorageDb = fullUserAuthentication.getUserStorage();
-            filteredSortedUsers = sortingListByRoleByName(userStorageDb.getAllNestedStorageUsers(userStorageDb));
-        }
+    public String getAllUsers(@AuthenticationPrincipal User adminUser, Model model) {
+        List<UserDTO> users = userService.getAllUsersForRoleAdmin(adminUser);
 
-        model.addAttribute("users", filteredSortedUsers);
+        model.addAttribute("users", users);
         return "usersList";
     }
+
+    // получение списка пользователей для конкретного хранилища --------------------------------------------------------
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'MAIN_ADMIN')")
+    @GetMapping("/storage/{id}")
+    public String getUsersByStorage(@PathVariable Long id, Model model) {
+        UserStorage userStorageDb = userStorageService.getUserStorageById(id);
+        List<UserDTO> users = userService.getUsersByStorageId(userStorageDb);
+
+        model.addAttribute("users", users);
+        return "usersList";
+    }
+
+
 
     // удаление пользователя -------------------------------------------------------------------------------------------
     @PreAuthorize("hasAnyAuthority('ADMIN', 'MAIN_ADMIN')")
@@ -73,7 +75,7 @@ public class UserController {
         User userFromDb = userService.getUserById(id);
         User fullUserAuthentication = userService.getUserByIdWithUserStorage(userAuthentication);
 
-        UserDTO userDTO = userMapper.convertToDTOProfile(userFromDb);
+        UserDTO userDTO = userMapper.convertToDTO(userFromDb);
         UserStorageDTO userStorageDTO = userStorageMapper.convertToDTOForProfile(userFromDb.getUserStorage(), fullUserAuthentication);
 
         //если пользователь просматривает свой же профиль
@@ -149,13 +151,13 @@ public class UserController {
         }
 
         //конвертируем пользователя
-        UserDTO userDTO = userMapper.convertToDTOProfile(userFromDb);
+        UserDTO userDTO = userMapper.convertToDTO(userFromDb);
         userDTO.setUsername(usernameNew);
         model.addAttribute("userDTO", userDTO);
 
         //конвертируем хранилище
         UserStorage oldUserStorage = userFromDb.getUserStorage();
-        UserStorage newUserStorageDb = null;
+        UserStorage newUserStorageDb;
         if (storageId_Selected != null && !storageId_Selected.isEmpty()){
             int storageId = Integer.parseInt(storageId_Selected);
             newUserStorageDb = userStorageService.getUserStorageById(storageId);
@@ -210,20 +212,6 @@ public class UserController {
         return Constants.PROFILE_PAGE;
     }
 
-    private List<User> sortingListByRoleByName(List<User> userList){
-        return userList.stream()
-                .sorted(Comparator.comparing((User user) -> {
-                            if (user.getRoles().contains(Role.MAIN_ADMIN)) {
-                                return 0; // Высший приоритет
-                            } else if (user.getRoles().contains(Role.ADMIN)) {
-                                return 1; // Средний приоритет
-                            } else {
-                                return 2; // Низший приоритет
-                            }
-                        })
-                        .thenComparing(User::getUsername)) // Дополнительно сортируем по username в алфавитном порядке
-                .toList();
-    }
 }
 
 

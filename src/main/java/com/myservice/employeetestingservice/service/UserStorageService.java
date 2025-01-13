@@ -3,7 +3,6 @@ package com.myservice.employeetestingservice.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.myservice.employeetestingservice.domain.User;
 import com.myservice.employeetestingservice.domain.UserStorage;
-import com.myservice.employeetestingservice.dto.UserStorageDTO;
 import com.myservice.employeetestingservice.repository.UserStorageRepository;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -152,11 +151,31 @@ public class UserStorageService {
 
     //Обновление пользователя в хранилищах
     public void updateUserForStorage(UserStorage oldUserStorage, UserStorage newUserStorageDb, User userAuthentication, User userFromDb) throws JsonProcessingException {
-        //удаление пользователя из старого хранилища
-        deleteUserForStorage(oldUserStorage, userFromDb, userAuthentication);
+        if (oldUserStorage != null && oldUserStorage.getId() == newUserStorageDb.getId()){
+            //обновление роли пользователя в текущем хранилище
+            updateAdminUserStorage(newUserStorageDb, userFromDb, userAuthentication);
+        } else {
+            //удаление пользователя из старого хранилища
+            deleteUserForStorage(oldUserStorage, userFromDb, userAuthentication);
+            //добавление пользователя в новое хранилище
+            addUserForStorage(newUserStorageDb, userFromDb, userAuthentication);
+        }
+    }
 
-        //добавление пользователя в новое хранилище
-        addUserForStorage(newUserStorageDb, userFromDb, userAuthentication);
+    private void updateAdminUserStorage(UserStorage userStorage, User userFromDb, User userAuthentication) {
+        if (userStorage.getAdministrator() == null){
+            if (userFromDb.isAdmin()){
+                userStorage.setAdministrator(userFromDb);
+            }
+        }
+        else if (userStorage.getAdministrator() != null && userStorage.getAdministrator().getId() == userFromDb.getId()){
+            userStorage.setAdministrator(null);
+        } else if (userStorage.getAdministrator() != null && userStorage.getAdministrator().getId() != userFromDb.getId()){
+            if (userFromDb.isAdmin()){
+                userStorage.setAdministrator(userFromDb);
+            }
+        }
+        userStorageRepository.save(userStorage);
     }
 
     //DELETE (Удаление)-------------------------------------------------------------------------------------------------
