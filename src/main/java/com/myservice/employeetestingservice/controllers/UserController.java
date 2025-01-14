@@ -52,7 +52,6 @@ public class UserController {
     }
 
 
-
     // удаление пользователя -------------------------------------------------------------------------------------------
     @PreAuthorize("hasAnyAuthority('ADMIN', 'MAIN_ADMIN')")
     @GetMapping("/delete/{id}")
@@ -72,33 +71,10 @@ public class UserController {
             @AuthenticationPrincipal User userAuthentication,
             @PathVariable(required = false) int id,
             Model model) {
-        User userFromDb = userService.getUserById(id);
-        User fullUserAuthentication = userService.getUserByIdWithUserStorage(userAuthentication);
-
-        UserDTO userDTO = userMapper.convertToDTO(userFromDb);
-        UserStorageDTO userStorageDTO = userStorageMapper.convertToDTOForProfile(userFromDb.getUserStorage(), fullUserAuthentication);
-
-        //если пользователь просматривает свой же профиль
-        if (fullUserAuthentication.getId() == userFromDb.getId()) {
-            return setModelFromProfileUser(userDTO, userStorageDTO, model);
-        } else {
-            //если профиль просматривает MainAdmin
-            if (fullUserAuthentication.isMainAdmin()) {
-                return setModelFromProfileUser(userDTO, userStorageDTO, model);
-            }
-            //если профиль просматривает Admin
-            else if (fullUserAuthentication.isAdmin()) {
-
-                if (!userFromDb.getRoles().contains(Role.MAIN_ADMIN) && !userFromDb.getRoles().contains(Role.ADMIN)) {
-                    return setModelFromProfileUser(userDTO, userStorageDTO, model);
-                } else {
-                    return setModelFromProfileUser(userDTO, userStorageDTO, model);
-                }
-            } else {
-                return setModelFromProfileUser(userDTO, userStorageDTO, model);
-            }
-        }
+        return userService.getUserProfile(userAuthentication, id, model);
     }
+
+
 
     // отправка формы для обновления профиля пользователя --------------------------------------------------------------
     @PostMapping("profile/{id}")

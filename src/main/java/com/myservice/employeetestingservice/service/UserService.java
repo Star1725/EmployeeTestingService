@@ -1,8 +1,10 @@
 package com.myservice.employeetestingservice.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.myservice.employeetestingservice.controllers.Constants;
 import com.myservice.employeetestingservice.domain.*;
 import com.myservice.employeetestingservice.dto.UserDTO;
+import com.myservice.employeetestingservice.dto.UserStorageDTO;
 import com.myservice.employeetestingservice.mapper.UserMapper;
 import com.myservice.employeetestingservice.mapper.UserStorageMapper;
 import com.myservice.employeetestingservice.repository.UserRepository;
@@ -13,6 +15,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.ui.Model;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -169,6 +172,8 @@ public class UserService implements UserDetailsService{
         return userMapper.convertToDTOList(filteredSortedUsers);
     }
 
+    //вспомогательные методы
+
     public List<User> findAll() {
         return userRepository.findAll();
     }
@@ -194,4 +199,58 @@ public class UserService implements UserDetailsService{
         filteredSortedUsers = sortingListByRoleByName(userStorage.getAllNestedStorageUsers(userStorage));
         return userMapper.convertToDTOList(filteredSortedUsers);
     }
+
+
+// получение профиля пользователя ----------------------------------------------------------------------------------
+
+    public String getUserProfile(User userAuthentication, int id, Model model) {
+        // Получение пользователя из базы
+        User userFromDb = Optional.ofNullable(getUserById(id))
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь с ID " + id + " не найден."));
+
+        User fullUserAuthentication = Optional.ofNullable(getUserByIdWithUserStorage(userAuthentication))
+                .orElseThrow(() -> new IllegalStateException("Ошибка получения данных аутентификации."));
+
+        // Проверка прав доступа
+        if (!hasAccessToProfile(fullUserAuthentication, userFromDb)) {
+            throw new SecurityException("Доступ к профилю пользователя запрещен.");
+        }
+
+        // Конвертация пользователя и хранилища в DTO
+        UserDTO userDTO = userMapper.convertToDTO(userFromDb);
+        UserStorageDTO userStorageDTO = userStorageMapper.convertToDTOForProfile(userFromDb.getUserStorage(), fullUserAuthentication);
+
+        // Установка данных в модель
+        return setModelFromProfileUser(userDTO, userStorageDTO, model);
+    }
+
+// Вспомогательные методы
+
+    private boolean hasAccessToProfile(User currentUser, User targetUser) {
+        return isUserViewingOwnProfile(currentUser, targetUser)
+                || isMainAdmin(currentUser)
+                || isAdminWithAccessToUser(currentUser, targetUser);
+    }
+
+    private boolean isUserViewingOwnProfile(User currentUser, User targetUser) {
+        return currentUser.getId().equals(targetUser.getId());
+    }
+
+    private boolean isMainAdmin(User user) {
+        return user.isMainAdmin();
+    }
+
+    private boolean isAdminWithAccessToUser(User admin, User targetUser) {
+        return admin.isAdmin() && !targetUser.getRoles().contains(Role.MAIN_ADMIN) && !targetUser.getRoles().contains(Role.ADMIN);
+    }
+
+    private String setModelFromProfileUser(UserDTO userDTO, UserStorageDTO userStorageDTO, Model model) {
+        model.addAttribute("roles", Role.values());
+        model.addAttribute("accessLevels", AccessLevel.values());
+        model.addAttribute("specAccesses", SpecAccess.values());
+        model.addAttribute("userDTO", userDTO);
+        model.addAttribute("userStorageDTO", userStorageDTO);
+        return Constants.PROFILE_PAGE;
+    }
+
 }
