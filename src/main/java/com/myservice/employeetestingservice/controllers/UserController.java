@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Controller
 @RequestMapping("/users")
@@ -51,7 +52,6 @@ public class UserController {
         return "usersList";
     }
 
-
     // удаление пользователя -------------------------------------------------------------------------------------------
     @PreAuthorize("hasAnyAuthority('ADMIN', 'MAIN_ADMIN')")
     @GetMapping("/delete/{id}")
@@ -74,8 +74,6 @@ public class UserController {
         return userService.getUserProfile(userAuthentication, id, model);
     }
 
-
-
     // отправка формы для обновления профиля пользователя --------------------------------------------------------------
     @PostMapping("profile/{id}")
     public String updateProfileUser(
@@ -84,87 +82,14 @@ public class UserController {
             @RequestParam String passwordOld,
             @AuthenticationPrincipal User userAuthentication,
             @RequestParam(required = false) String primaryParentStorageNameSelected,
-            @RequestParam(required = false) String storageId_Selected,
+            @RequestParam(required = false) String storageIdSelected,
             @RequestParam(required = false) String passwordNew,
             @RequestParam(required = false) String passwordNew2,
-            @PathVariable(required = false) int id,
-            @RequestParam Map<String, String> form
-    ) throws JsonProcessingException {
-        //получаем пользователя, для которого нужно обновить данные и полного администратора
-        User userFromDb = userService.getUserById(id);
-        User fullUserAuthentication = userService.getUserByIdWithUserStorage(userAuthentication);
-
-        //проверка поля ввода ФИО на пустоту
-        if((usernameNew == null || usernameNew.isEmpty())){
-            model.addAttribute("usernameNewError", "Поле не может быть пустым!");
-        }
-
-        //проверяем меняем ли пароль
-        boolean isChangePassword = false;
-        if (!passwordNew.isEmpty() && !passwordNew2.isEmpty()){
-            if (!passwordNew.equals(passwordNew2)){
-                model.addAttribute("passwordNewError", Constants.PASSWORD_MISMATCH);
-                model.addAttribute("passwordNew2Error", Constants.PASSWORD_MISMATCH);
-            } else {
-                isChangePassword = true;
-                //проверяем валидность старого пароля для смены на новый
-                if (!passwordOld.isEmpty() && !userService.checkOldPassword(passwordOld, userFromDb)){
-                    model.addAttribute("passwordOldError", "Вы ввели неправильный пароль");
-                }
-            }
-        }
-
-        //проверяем есть другой пользователь в БД с именем, которое хотим присвоить текущему пользователю userFromDb
-        if (userService.loadUserByUsernameForUpdateUser(usernameNew) && !usernameNew.equals(userFromDb.getUsername())){
-            model.addAttribute("usernameNewError", Constants.USERNAME_FIND_ERROR);
-        }
-
-        //Добавляем в модель необходимые поля для корректного отображения. Для оптимизации отправляемых данных их количество определяется ролью пользователя
-        if (userFromDb.isAdmin()){
-            model.addAttribute("roles", Role.values());
-            model.addAttribute("accessLevels", AccessLevel.values());
-            model.addAttribute("specAccesses", SpecAccess.values());
-        }
-
-        //конвертируем пользователя
-        UserDTO userDTO = userMapper.convertToDTO(userFromDb);
-        userDTO.setUsername(usernameNew);
-        model.addAttribute("userDTO", userDTO);
-
-        //конвертируем хранилище
-        UserStorage oldUserStorage = userFromDb.getUserStorage();
-        UserStorage newUserStorageDb;
-        if (storageId_Selected != null && !storageId_Selected.isEmpty()){
-            int storageId = Integer.parseInt(storageId_Selected);
-            newUserStorageDb = userStorageService.getUserStorageById(storageId);
-        } else {
-            newUserStorageDb = userStorageService.getUserStorageByUsersStorageName(primaryParentStorageNameSelected);
-        }
-        UserStorageDTO userStorageDTO = userStorageMapper.convertToDTOForProfile(newUserStorageDb, fullUserAuthentication);
-        model.addAttribute("userStorageDTO", userStorageDTO);
-
-        //при наличии в model поля с вложенным словом "Error" возвращаем PROFILE_PAGE с ошибкой(-ами)
-        if (model.asMap().keySet().stream().anyMatch(key->key.contains("Error"))){
-            return Constants.PROFILE_PAGE;
-        }
-
-        //обновляем пользователя и хранилище
-        long authenticationId = fullUserAuthentication.getId();
-        long userId = userFromDb.getId();
-        if (authenticationId == userId){
-            userService.updateUserFromDb( userFromDb, newUserStorageDb, form, null);
-            userStorageService.updateUserForStorage(oldUserStorage, newUserStorageDb, null, userFromDb);
-            model.addAttribute("message", "Данные успешно обновлены!");
-            if (isChangePassword){
-                return "redirect:/users/logout";
-            } else {
-                return Constants.PROFILE_PAGE;
-            }
-        } else {
-            userService.updateUserFromDb(userFromDb, newUserStorageDb, form, fullUserAuthentication);
-            userStorageService.updateUserForStorage(oldUserStorage, newUserStorageDb, fullUserAuthentication, userFromDb);
-            return "redirect:/users";
-        }
+            @PathVariable(required = false) Optional<Integer> id,
+            @RequestParam Map<String, String> form) throws JsonProcessingException {
+        return userService.updateUserProfile(
+                model, usernameNew, passwordOld, userAuthentication, primaryParentStorageNameSelected,
+                storageIdSelected, passwordNew, passwordNew2, id, form);
     }
 
     // выход -----------------------------------------------------------------------------------------------------------
@@ -176,18 +101,6 @@ public class UserController {
         }
         return "login";
     }
-//----------------------------------------------------------------------------------------------------------------------
-
-
-    private String setModelFromProfileUser(UserDTO userDTO, UserStorageDTO userStorageDTO, Model model) {
-        model.addAttribute("roles", Role.values());
-        model.addAttribute("accessLevels", AccessLevel.values());
-        model.addAttribute("specAccesses", SpecAccess.values());
-        model.addAttribute("userDTO", userDTO);
-        model.addAttribute("userStorageDTO", userStorageDTO);
-        return Constants.PROFILE_PAGE;
-    }
-
 }
 
 

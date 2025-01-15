@@ -154,6 +154,8 @@ public class UserStorageService {
         if (oldUserStorage != null && oldUserStorage.getId() == newUserStorageDb.getId()){
             //обновление роли пользователя в текущем хранилище
             updateAdminUserStorage(newUserStorageDb, userFromDb, userAuthentication);
+            //добавление пользователя в новое хранилище
+            addUserForStorage(newUserStorageDb, userFromDb, userAuthentication);
         } else {
             //удаление пользователя из старого хранилища
             deleteUserForStorage(oldUserStorage, userFromDb, userAuthentication);

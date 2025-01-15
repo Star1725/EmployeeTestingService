@@ -77,9 +77,9 @@
 
                 <div class="col-sm-5">
                     <select class="form-select form-select-sm-2"
-                            name="storageId_Selected"
+                            name="storageIdSelected"
                             aria-label=".form-select-sm-2"
-                            id="storageName_Selected">
+                            id="storageNameSelected">
                         <option selected
                         value="<#if userStorageDTO.id??>${userStorageDTO.id}</#if>">
                             <#if userStorageDTO.fullUserStorageName??>
@@ -88,7 +88,7 @@
                         </option>
                         <#list userStorageDTO.allChildStoragesForPrimaryParent! as childStorage>
                             <option value="${childStorage.id}"
-                                    name="storageId_Selected"
+                                    name="storageIdSelected"
                             >${childStorage.fullUserStorageName}</option>
                         </#list>
                     </select>
@@ -114,7 +114,7 @@
                     Находим элемент с id="storageName_Selected" (второй <select>), чтобы динамически обновить его содержимое.
                  */
                 const loadingMessage = document.getElementById('loadingMessage');
-                const childSelect = document.getElementById('storageName_Selected');
+                const childSelect = document.getElementById('storageNameSelected');
 
                 // Показать сообщение "Загрузка..."
                 /*
