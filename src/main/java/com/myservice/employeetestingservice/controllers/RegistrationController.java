@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.myservice.employeetestingservice.domain.User;
 import com.myservice.employeetestingservice.dto.UserDTO;
 import com.myservice.employeetestingservice.mapper.UserMapper;
+import com.myservice.employeetestingservice.service.RegistrationService;
 import com.myservice.employeetestingservice.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +21,7 @@ import java.util.Map;
 @Controller
 @RequiredArgsConstructor
 public class RegistrationController {
-
+    private final RegistrationService registrationService;
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
@@ -53,7 +54,7 @@ public class RegistrationController {
             return Constants.REGISTRATION_PAGE;
         }
         User user = userMapper.convertToEntityRegistration(userDTO);
-        if (!userService.createUserFromRegistrationPage(user)){
+        if (!registrationService.createUserFromRegistrationPage(user)){
             model.addAttribute("usernameError", "Такой Пользователь уже существует!");
             return Constants.REGISTRATION_PAGE;
         } else {

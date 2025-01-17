@@ -1,9 +1,12 @@
 package com.myservice.employeetestingservice.config;
 
+import com.myservice.employeetestingservice.repository.UserRepository;
 import com.myservice.employeetestingservice.repository.UserStorageRepository;
 import com.myservice.employeetestingservice.service.LogService;
+import com.myservice.employeetestingservice.service.UserService;
 import com.myservice.employeetestingservice.service.UserStorageService;
 import org.modelmapper.ModelMapper;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -24,11 +27,6 @@ public class MyConfig {
     @Bean
     public ModelMapper getModelMapper() {
             return new ModelMapper();
-    }
-
-    @Bean
-    public UserStorageService userStorageService(UserStorageRepository userStorageRepository, LogService logService) {
-        return new UserStorageService(userStorageRepository, logService);
     }
 
 }

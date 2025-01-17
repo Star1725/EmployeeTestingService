@@ -6,6 +6,7 @@ import com.myservice.employeetestingservice.dto.UserDTO;
 import com.myservice.employeetestingservice.dto.UserStorageDTO;
 import com.myservice.employeetestingservice.mapper.UserMapper;
 import com.myservice.employeetestingservice.mapper.UserStorageMapper;
+import com.myservice.employeetestingservice.service.ServiceWorkingUserAndStorage;
 import com.myservice.employeetestingservice.service.UserService;
 import com.myservice.employeetestingservice.service.UserStorageService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,9 +28,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class UserController {
     private final UserService userService;
-    private final UserMapper userMapper;
-    private final UserStorageMapper userStorageMapper;
     private final UserStorageService userStorageService;
+    private final ServiceWorkingUserAndStorage serviceWorkingUserAndStorage;
 
     // получение списка пользователей с учётом профиля администратора --------------------------------------------------
     @PreAuthorize("hasAnyAuthority('ADMIN', 'MAIN_ADMIN')")
@@ -47,7 +47,6 @@ public class UserController {
     public String getUsersByStorage(@PathVariable Long id, Model model) {
         UserStorage userStorageDb = userStorageService.getUserStorageById(id);
         List<UserDTO> users = userService.getUsersByStorageId(userStorageDb);
-
         model.addAttribute("users", users);
         return "usersList";
     }
@@ -59,9 +58,8 @@ public class UserController {
             @AuthenticationPrincipal User userAuthentication,
             @PathVariable(required = false) int id) throws JsonProcessingException {
         User userFromDb = userService.getUserById(id);
-        userStorageService.deleteUserForStorage(userFromDb.getUserStorage(), userFromDb, userAuthentication);
+        serviceWorkingUserAndStorage.deleteUserForStorage(userFromDb.getUserStorage(), userFromDb, userAuthentication);
         userService.deleteUser(id, userAuthentication);
-
         return "redirect:/users";
     }
 

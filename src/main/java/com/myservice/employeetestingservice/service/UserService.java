@@ -10,14 +10,10 @@ import com.myservice.employeetestingservice.mapper.UserStorageMapper;
 import com.myservice.employeetestingservice.repository.UserRepository;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.ui.Model;
 
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -26,41 +22,13 @@ import static com.myservice.employeetestingservice.controllers.Constants.PASSWOR
 @Service
 @Data
 @RequiredArgsConstructor
-public class UserService implements UserDetailsService{
+public class UserService{
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final LogService logService;
     private final UserMapper userMapper;
     private final UserStorageMapper userStorageMapper;
-    private final UserStorageService userStorageService;
-
-    @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByUsername(username);
-        if (user == null) {
-            throw new UsernameNotFoundException("Пользователь не найден!");
-        }
-        return user;
-    }
-
-
-//Создание пользователя через страницу регистрации------------------------------------------------------------------
-    public boolean createUserFromRegistrationPage(User user) throws JsonProcessingException {
-        User userFromDB = userRepository.findByUsername(user.getUsername());
-        if (userFromDB != null) {
-            return false;
-        }
-        user.setActive(true);
-        LocalDateTime timeCreated = LocalDateTime.now();
-        user.setDateCreated(timeCreated);
-        logService.writeUserLog(user, "пользователь создан через страницу регистрации.");
-        user.setRoles(new ArrayList<>(List.of(Role.USER)));
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        User userDb = userRepository.save(user);
-        userDb.setCreatedUser(userDb);
-        userRepository.save(userDb);
-        return true;
-    }
+    private final ServiceWorkingUserAndStorage serviceWorkingUserAndStorage;
 
 //Удаление пользователя-------------------------------------------------------------------------------------------------
     public void deleteUser(int id, User userAuthentication) throws JsonProcessingException {
@@ -391,8 +359,8 @@ public class UserService implements UserDetailsService{
         return Optional.ofNullable(storageIdSelected)
                 .filter(id -> !id.isEmpty()) // Проверяем, что ID не пустой
                 .map(Integer::parseInt) // Конвертируем ID из строки в Integer
-                .map(userStorageService::getUserStorageById) // Получаем хранилище по ID
-                .orElseGet(() -> userStorageService.getUserStorageByUsersStorageName(primaryParentStorageNameSelected)); // Иначе получаем по имени
+                .map(serviceWorkingUserAndStorage::getUserStorageById) // Получаем хранилище по ID
+                .orElseGet(() -> serviceWorkingUserAndStorage.getUserStorageByUsersStorageName(primaryParentStorageNameSelected)); // Иначе получаем по имени
     }
 
     /**
@@ -431,15 +399,16 @@ public class UserService implements UserDetailsService{
      * @throws JsonProcessingException если возникает ошибка обработки JSON
      */
     private void updateUserAndStorage(User userFromDb, UserStorage newUserStorage, Map<String, String> form, User fullUserAuthentication) throws JsonProcessingException {
+        updatePasswordAndAccess(userFromDb, form, fullUserAuthentication);
+        serviceWorkingUserAndStorage.updateUserForStorage(userFromDb.getUserStorage(), newUserStorage, fullUserAuthentication, userFromDb);
         userFromDb.setUserStorage(newUserStorage);
-        updateUserFromDb(userFromDb, newUserStorage, form, fullUserAuthentication);
-        userStorageService.updateUserForStorage(userFromDb.getUserStorage(), newUserStorage, fullUserAuthentication, userFromDb);
+        userRepository.save(userFromDb);
     }
 
-    public void updateUserFromDb(User userFromDb, UserStorage userStorage, Map<String, String> form, User userAuthentication) throws JsonProcessingException {
+    public void updatePasswordAndAccess(User userFromDb, Map<String, String> form, User userAuthentication) throws JsonProcessingException {
         userFromDb.setUsername(form.get("usernameNew"));
-        userFromDb.setUserStorage(userStorage);
-        if (userAuthentication != null) {
+        //если данные пользователя обновляет administrator, то...
+        if (userAuthentication != null && !userAuthentication.getId().equals(userFromDb.getId())) {
             //получение списка всех ролей, из которых потом проверить какие установлены данному пользователю
             //для этого переводим Enum в строковый вид
             Set<String> roles = Arrays.stream(Role.values())
@@ -456,16 +425,14 @@ public class UserService implements UserDetailsService{
                     .map(SpecAccess::name)
                     .collect(Collectors.toSet());
             updateSpecAccessLevels(userFromDb.getSpecAccesses(), specAccessLevels, form);
+            logService.writeUserLog(userAuthentication, "администратор изменил данные пользователя - \"" + userFromDb.getUsername()+ "\"");
         }
         if (form.get(PASSWORD_NEW) != null && !form.get(PASSWORD_NEW).isEmpty()) {
             userFromDb.setPassword(passwordEncoder.encode(form.get(PASSWORD_NEW)));
         }
-        if (userAuthentication == null){
+        if (userAuthentication != null && userAuthentication.getId().equals(userFromDb.getId())){
             logService.writeUserLog(userFromDb, "пользователь изменил свои данные");
-        } else {
-            logService.writeUserLog(userAuthentication, "администратор изменил данные пользователя - \"" + userFromDb.getUsername()+ "\"");
         }
-        userRepository.save(userFromDb);
     }
 
     private void updateRoles(List<Role> roleList, Set<String> stringSet, Map<String, String> form) {

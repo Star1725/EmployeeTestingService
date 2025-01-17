@@ -1,5 +1,6 @@
 package com.myservice.employeetestingservice.config;
 
+import com.myservice.employeetestingservice.service.RegistrationService;
 import com.myservice.employeetestingservice.service.UserService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,8 +23,12 @@ public class WebSecurityConfig {
 
     final PasswordEncoder passwordEncoder;
 
-    public WebSecurityConfig(UserService userDetailsService, PasswordEncoder passwordEncoder) {
-        this.userDetailsService = userDetailsService;
+    public WebSecurityConfig(
+//            UserService userDetailsService,
+            RegistrationService registrationService,
+            PasswordEncoder passwordEncoder) {
+//        this.userDetailsService = userDetailsService;
+        this.userDetailsService = registrationService;
         this.passwordEncoder = passwordEncoder;
     }
 

@@ -60,4 +60,13 @@ public class UserStorageMapper {
         }
         return userStorageDTO;
     }
+
+    public UserStorage convertToUsersStorage(UserStorageDTO userStorageDTO) {
+        UserStorage userStorage = new UserStorage();
+        userStorage.setId(userStorageDTO.getId());
+        userStorage.setUserStorageName(userStorageDTO.getUserStorageName());
+        userStorage.setStorageDescription(userStorageDTO.getFullUserStorageName());
+
+        return userStorage;
+    }
 }

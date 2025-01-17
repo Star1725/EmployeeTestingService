@@ -26,8 +26,6 @@ import static com.myservice.employeetestingservice.controllers.Constants.*;
 @Data
 public class UserStorageController {
     private final UserStorageService userStorageService;
-    private final UserService userService;
-    private final ModelMapper modelMapper;
     private final UserStorageMapper userStorageMapper;
     private final LogService logService;
 
@@ -68,6 +66,9 @@ public class UserStorageController {
                                   @AuthenticationPrincipal User userAdmin) throws JsonProcessingException {
         //определяем в какую организацию либо внутреннее подразделение добавляем
         UserStorage parentUserStorage = userStorageService.determineWhichParentStorage(userStorageParentNameSelected, idParentStorage);
+        if (parentUserStorage != null){
+            parentUserStorage.setParentStorage(true);
+        }
 
         //получение:
         Set<UserStorage> userStorages;                           //списка подчинённых подразделений для заполнения таблицы
@@ -87,7 +88,7 @@ public class UserStorageController {
             return Constants.USER_STORAGES_LIST;
         }
 
-        UserStorage userStorage = convertToUsersStorage(userStorageDTO);
+        UserStorage userStorage = userStorageMapper.convertToUsersStorage(userStorageDTO);
         if (userStorageService.addUserStorage(userStorage, userAdmin, parentUserStorage)) {
             model.addAttribute("userStorageNameError", "Такое название уже существует!");
             model.addAttribute(PARENT_USER_STORAGE, parentUserStorage);
@@ -122,7 +123,7 @@ public class UserStorageController {
         
         String id = idStorage.replaceAll("\\D", "");
         userStorageDTO.setId(Long.parseLong(id));
-        UserStorage updatedUserStorage = convertToUsersStorage(userStorageDTO);
+        UserStorage updatedUserStorage = userStorageMapper.convertToUsersStorage(userStorageDTO);
         
         //валидация пустого имени
         if (validationOfEmptyName(userStorageDTO, model, idStorage)) {
@@ -175,9 +176,9 @@ public class UserStorageController {
     }
 
     //------------------------------------------------------------------------------------------------------------------
-    private UserStorage convertToUsersStorage(UserStorageDTO userStorageDTO) {
-        return modelMapper.map(userStorageDTO, UserStorage.class);
-    }
+//    private UserStorage convertToUsersStorage(UserStorageDTO userStorageDTO) {
+//        return modelMapper.map(userStorageDTO, UserStorage.class);
+//    }
 
     private String redirectUserStoragePage(UserStorage userStorageParent) {
         if (userStorageParent != null && !userStorageParent.getUserStorageName().equals("-")) {
