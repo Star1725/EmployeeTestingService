@@ -1,11 +1,9 @@
 package com.myservice.employeetestingservice.controllers;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.myservice.employeetestingservice.domain.*;
+import com.myservice.employeetestingservice.domain.User;
+import com.myservice.employeetestingservice.domain.UserStorage;
 import com.myservice.employeetestingservice.dto.UserDTO;
-import com.myservice.employeetestingservice.dto.UserStorageDTO;
-import com.myservice.employeetestingservice.mapper.UserMapper;
-import com.myservice.employeetestingservice.mapper.UserStorageMapper;
 import com.myservice.employeetestingservice.service.ServiceWorkingUserAndStorage;
 import com.myservice.employeetestingservice.service.UserService;
 import com.myservice.employeetestingservice.service.UserStorageService;
@@ -36,7 +34,6 @@ public class UserController {
     @GetMapping
     public String getAllUsers(@AuthenticationPrincipal User adminUser, Model model) {
         List<UserDTO> users = userService.getAllUsersForRoleAdmin(adminUser);
-
         model.addAttribute("users", users);
         return "usersList";
     }
@@ -56,7 +53,7 @@ public class UserController {
     @GetMapping("/delete/{id}")
     public String deleteUser(
             @AuthenticationPrincipal User userAuthentication,
-            @PathVariable(required = false) int id) throws JsonProcessingException {
+            @PathVariable long id) throws JsonProcessingException {
         User userFromDb = userService.getUserById(id);
         serviceWorkingUserAndStorage.deleteUserForStorage(userFromDb.getUserStorage(), userFromDb, userAuthentication);
         userService.deleteUser(id, userAuthentication);
@@ -67,7 +64,7 @@ public class UserController {
     @GetMapping("profile/{id}")
     public String getUserProfile(
             @AuthenticationPrincipal User userAuthentication,
-            @PathVariable(required = false) int id,
+            @PathVariable(required = false) Optional<Long> id,
             Model model) {
         return userService.getUserProfile(userAuthentication, id, model);
     }
@@ -83,7 +80,7 @@ public class UserController {
             @RequestParam(required = false) String storageIdSelected,
             @RequestParam(required = false) String passwordNew,
             @RequestParam(required = false) String passwordNew2,
-            @PathVariable(required = false) Optional<Integer> id,
+            @PathVariable(required = false) Optional<Long> id,
             @RequestParam Map<String, String> form) throws JsonProcessingException {
         return userService.updateUserProfile(
                 model, usernameNew, passwordOld, userAuthentication, primaryParentStorageNameSelected,

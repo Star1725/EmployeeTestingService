@@ -31,10 +31,10 @@ public class UserService{
     private final ServiceWorkingUserAndStorage serviceWorkingUserAndStorage;
 
 //Удаление пользователя-------------------------------------------------------------------------------------------------
-    public void deleteUser(int id, User userAuthentication) throws JsonProcessingException {
+    public void deleteUser(long id, User userAuthentication) throws JsonProcessingException {
         User userFromDB = userRepository.getReferenceById((long) id);
         logService.writeUserLog(userAuthentication, "администратор удалил пользователя - \"" + userFromDB.getUsername() + "\"");
-        userRepository.deleteById((long) id);
+        userRepository.deleteById(id);
     }
 
 // Получение списка пользователей в зависимости от роли администратора--------------------------------------------------
@@ -132,11 +132,11 @@ public class UserService{
      * @throws IllegalStateException если информация о текущем пользователе не получена
      * @throws SecurityException если доступ к профилю пользователя запрещён
      */
-    public String getUserProfile(User userAuthentication, int id, Model model) {
-        // Получение пользователя из базы данных по ID
-        // Если пользователь не найден, выбрасывается IllegalArgumentException с соответствующим сообщением
-        User userFromDb = Optional.ofNullable(getUserById(id))
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь с ID " + id + " не найден."));
+    public String getUserProfile(User userAuthentication, Optional<Long> id, Model model) {
+        // Получаем пользователя из базы данных по ID
+        // Если пользователь не найден, выбрасывается IllegalArgumentException
+        User userFromDb = id.map(this::getUserById)
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден."));
 
         // Получение полной информации о текущем аутентифицированном пользователе, включая данные о хранилище
         // Если информация не получена, выбрасывается IllegalStateException с соответствующим сообщением
@@ -153,7 +153,7 @@ public class UserService{
         UserDTO userDTO = userMapper.convertToDTO(userFromDb);
 
         // Преобразование хранилища пользователя в DTO-объект для представления
-        UserStorageDTO userStorageDTO = userStorageMapper.convertToDTOForProfile(userFromDb.getUserStorage(), fullUserAuthentication);
+        UserStorageDTO userStorageDTO = userStorageMapper.convertToDTOForProfilePage(userFromDb.getUserStorage(), fullUserAuthentication);
 
         // Добавление данных пользователя и хранилища в модель и возврат имени страницы профиля
         return setModelFromProfileUser(userDTO, userStorageDTO, model);
@@ -253,7 +253,7 @@ public class UserService{
             String storageIdSelected,
             String passwordNew,
             String passwordNew2,
-            Optional<Integer> id,
+            Optional<Long> id,
             Map<String, String> form) throws JsonProcessingException {
 
         // Получаем пользователя из базы данных по ID
@@ -386,7 +386,7 @@ public class UserService{
         model.addAttribute("userDTO", userDTO);
 
         // Конвертируем хранилище в DTO и добавляем в модель
-        UserStorageDTO userStorageDTO = userStorageMapper.convertToDTOForProfile(newUserStorage, fullUserAuthentication);
+        UserStorageDTO userStorageDTO = userStorageMapper.convertToDTOForProfilePage(newUserStorage, fullUserAuthentication);
         model.addAttribute("userStorageDTO", userStorageDTO);
     }
 
