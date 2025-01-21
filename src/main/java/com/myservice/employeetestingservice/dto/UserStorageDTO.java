@@ -4,6 +4,7 @@ import com.myservice.employeetestingservice.domain.User;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
+import java.util.List;
 import java.util.Set;
 
 @Data
@@ -13,17 +14,18 @@ public class UserStorageDTO {
 
     @NotBlank(message = "Поле не может быть пустым!")
     private String userStorageName;
-    //полное имя, от головной организации/подразделения до userStorageName, разделённые "/"
-    private String fullUserStorageName;
+    private String fullUserStorageName;//полное имя, от головной организации/подразделения до userStorageName, разделённые "/"
     private String storageDescription;
     private String logFile;
     private User administrator;
 
-    private Set<User> storageUsers;
+    private List<User> storageUsers;
 
+    private boolean isParentStorage;
     private Set<UserStorageDTO> childStorages;
 
-    private UserStorageDTO parentStorage;
+    private boolean isChildStorage;
+    private UserStorageDTO parentUserStorage;
 
     private UserStorageDTO primaryParentStorage;
     private UserStorageDTO defaultPrimaryParentStorage;

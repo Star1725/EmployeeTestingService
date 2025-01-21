@@ -28,12 +28,10 @@ public class UserStorageService {
     }
 
     //Получение всех хранилищ 1-го уровня(дочерних по отношению к дефолтной)
-    public Set<UserStorage> getAllUserStoragesWithDefaultParent() {
+    public Set<UserStorage> getTopLevelStorages() {
         return userStorageRepository.findAll().stream()
-                //отфильтровываем дефолтную организацию
-                .filter(userStorage -> !"-".equals(userStorage.getUserStorageName()))
-                //оставляем только родительские организации верхнего уровня (дочерние организации для дефолтной)
-                .filter(userStorage -> userStorage.getParentUserStorage().getUserStorageName().equals("-"))
+                .filter(storage -> !"-".equals(storage.getUserStorageName()))
+                .filter(storage -> "-".equals(storage.getParentUserStorage().getUserStorageName()))
                 .collect(Collectors.toSet());
     }
 
@@ -72,8 +70,8 @@ public class UserStorageService {
     }
 
     //Получение организации либо внутреннего подразделения, куда добавляем дочернее подразделение
-    public UserStorage determineWhichParentStorage(String userStorageParentNameSelected, String idParentStorage) {
-        UserStorage userStorageParent = null;
+    public UserStorage determineParentStorage(String userStorageParentNameSelected, String idParentStorage) {
+        UserStorage userStorageParent;
         if (idParentStorage != null && !idParentStorage.isEmpty()){
             String id = idParentStorage.replaceAll("\\D", "");
             UserStorage userStorageUpParent = getUserStorageRepository().getReferenceById(Long.valueOf(id));
@@ -83,47 +81,56 @@ public class UserStorageService {
             } else {
                 userStorageParent = userStorageUpParent;
             }
-        } else {
+        } else if (!userStorageParentNameSelected.isEmpty()){
             userStorageParent = getUserStorageByUsersStorageName(userStorageParentNameSelected);
+        } else {
+            userStorageParent = getDefaultUserStorage();
+        }
+        if (userStorageParent != null) {
+            userStorageParent.setParentStorage(true);
         }
         return userStorageParent;
     }
 
     //Post (Добавление/Обновление)--------------------------------------------------------------------------------------
     //Добавление хранилища
-    public boolean addUserStorage(UserStorage userStorage, User userAdmin, UserStorage userStorageParent) throws JsonProcessingException {
+    public boolean addUserStorage(UserStorage newUserStorage, User userAdmin, UserStorage userStorageParent) throws JsonProcessingException {
         //проверяем БД на наличие хранилища с таким же именем
         if (userStorageParent != null){
-            if (userStorageParent.getChildUserStorages().stream().anyMatch(userStorage1 -> userStorage1.getUserStorageName().equals(userStorage.getUserStorageName()))){
+            if (userStorageParent.getChildUserStorages().stream().anyMatch(userStorage1 -> userStorage1.getUserStorageName().equals(newUserStorage.getUserStorageName()))){
                 return true;
             }
         } else {
-            UserStorage userStorageDb = userStorageRepository.findByUserStorageName(userStorage.getUserStorageName());
+            UserStorage userStorageDb = userStorageRepository.findByUserStorageName(newUserStorage.getUserStorageName());
             if (userStorageDb != null) {
                 return true;
             }
         }
         LocalDateTime time = LocalDateTime.now();
-        userStorage.setCreatedUser(userAdmin);
-        userStorage.setDateCreated(time);
+        newUserStorage.setCreatedUser(userAdmin);
+        newUserStorage.setDateCreated(time);
         if (userStorageParent != null){
-            userStorageParent.getChildUserStorages().add(userStorage);
+            userStorageParent.getChildUserStorages().add(newUserStorage);
             userStorageParent.setParentStorage(true);
-            userStorage.setChildStorage(true);
-            userStorage.setParentUserStorage(userStorageParent);
+            newUserStorage.setChildStorage(true);
+            newUserStorage.setParentUserStorage(userStorageParent);
             userStorageParent.setDateChanged(time);
-            logService.writeStorageLog(userStorageParent, ": администратор - \"" + userAdmin.getUsername() + "\" в состав организации/подразделения добавлено подразделение - \"" + userStorage.getUserStorageName() + "\"");
-            logService.writeUserLog(userAdmin, "администратор в состав организации/подразделения - \"" + userStorageParent.getUserStorageName() + "\" добавил подразделение - \"" + userStorage.getUserStorageName() + "\"");
+            logService.writeStorageLog(userStorageParent, ": администратор - \"" + userAdmin.getUsername() +
+                    "\" в состав организации/подразделения добавлено подразделение - \"" + newUserStorage.getUserStorageName() + "\"");
+            logService.writeUserLog(userAdmin, "администратор в состав организации/подразделения - \"" +
+                    userStorageParent.getUserStorageName() + "\" добавил подразделение - \"" + newUserStorage.getUserStorageName() + "\"");
             userStorageRepository.save(userStorageParent);
         } else {
             //устанавливаем для создаваемого хранилища родительское хранилище по умолчанию
             UserStorage userStorageDefault = userStorageRepository.getReferenceById(0L);
-            userStorage.setParentUserStorage(userStorageDefault);
+            newUserStorage.setParentUserStorage(userStorageDefault);
             userStorageDefault.setParentStorage(true);
-            userStorage.setChildStorage(true);
-            userStorageDefault.getChildUserStorages().add(userStorage);
-            logService.writeStorageLog(userStorage, ": организации/подразделения создано администратором - \"" + userAdmin.getUsername() + "\"");
-            logService.writeUserLog(userAdmin, "администратор добавил организацию/подразделение - \"" + userStorage.getUserStorageName() + "\"");
+            newUserStorage.setChildStorage(true);
+            userStorageDefault.getChildUserStorages().add(newUserStorage);
+            logService.writeStorageLog(newUserStorage, ": организации/подразделения создано администратором - \"" +
+                    userAdmin.getUsername() + "\"");
+            logService.writeUserLog(userAdmin, "администратор добавил организацию/подразделение - \"" +
+                    newUserStorage.getUserStorageName() + "\"");
             userStorageRepository.save(userStorageDefault);
         }
         return false;
@@ -131,23 +138,33 @@ public class UserStorageService {
 
     //Обновление хранилища
     public boolean updateUserStorage(UserStorage updatedUserStorage, User userAdmin, UserStorage userStorageParent) throws JsonProcessingException {
-        //проверяем БД на наличие хранилища с таким же именем
-        UserStorage userStorageDb = userStorageRepository.getReferenceById(updatedUserStorage.getId());
-        if (userStorageParent.getChildUserStorages().stream().anyMatch(userStorage1 -> userStorage1.getUserStorageName().equals(updatedUserStorage.getUserStorageName()))){
+        //проверяем на наличие хранилища с таким же именем, но с другим Id
+        Optional<UserStorage> result = userStorageParent.getChildUserStorages().stream()
+                .filter(userStorage -> userStorage.getUserStorageName().equals(updatedUserStorage.getUserStorageName())).findFirst();
+        if (result.isPresent() && result.get().getId().equals(updatedUserStorage.getId())) {
             return true;
         }
 
+
+        UserStorage userStorageDb = userStorageRepository.getReferenceById(updatedUserStorage.getId());
         LocalDateTime time = LocalDateTime.now();
+        userStorageDb.setDateChanged(time);
         userStorageDb.setChangedUser(userAdmin);
         userStorageDb.setUserStorageName(updatedUserStorage.getUserStorageName());
-        userStorageParent.getChildUserStorages().add(userStorageDb);
-        userStorageParent.setParentStorage(true);
-        userStorageDb.setParentUserStorage(userStorageParent);
+        userStorageDb.setStorageDescription(updatedUserStorage.getStorageDescription());
         userStorageDb.setChildStorage(true);
+
+        if (!userStorageDb.getParentUserStorage().getId().equals(userStorageParent.getId())) {
+            userStorageDb.getParentUserStorage().getChildUserStorages().remove(userStorageDb);
+            userStorageRepository.save(userStorageDb.getParentUserStorage());
+            userStorageParent.getChildUserStorages().add(userStorageDb);
+            userStorageParent.setParentStorage(true);
+            userStorageDb.setParentUserStorage(userStorageParent);
+            userStorageRepository.save(userStorageParent);
+        }
+
         logService.writeStorageLog(userStorageParent, ": администратор - \"" + userAdmin.getUsername() + "\" в составе организации/подразделения обновил данные подразделения - \"" + userStorageDb.getUserStorageName() + "\"");
         logService.writeUserLog(userAdmin, "администратор в составе организации/подразделения - \"" + userStorageParent.getUserStorageName() + "\" обновил данные подразделение - \"" + userStorageDb.getUserStorageName() + "\"");
-        userStorageRepository.save(userStorageParent);
-        updatedUserStorage.setDateChanged(time);
         userStorageRepository.save(userStorageDb);
         return false;
     }
@@ -258,5 +275,23 @@ public class UserStorageService {
 
     public UserStorage getDefaultUserStorage() {
         return getUserStorageById(0);
+    }
+
+
+    public UserStorage getStorageById(long id) {
+        return userStorageRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Storage not found with ID: " + id));
+    }
+
+    public String getParentStorageNames(UserStorage storage) {
+        List<String> names = new ArrayList<>();
+        while (storage != null) {
+            if (!"-".equals(storage.getUserStorageName())) {
+                names.add(storage.getUserStorageName());
+            }
+            storage = storage.getParentUserStorage();
+        }
+        Collections.reverse(names);
+        return String.join(" / ", names);
     }
 }

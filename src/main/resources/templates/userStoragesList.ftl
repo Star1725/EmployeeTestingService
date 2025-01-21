@@ -34,8 +34,8 @@
         }
     </style>
     <h3>
-        <#if allParentStoragesNames??>
-            ${allParentStoragesNames}
+        <#if parentUserStorage??>
+            ${parentUserStorage.getFullUserStorageName()}
         </#if>
     </h3>
     <div style="margin: 0 auto; text-align: left;">
@@ -53,12 +53,12 @@
             </tr>
             </thead>
             <tbody>
-            <#if userStorages??>
-                <#list userStorages! as storage>
+            <#if parentUserStorage??>
+                <#list parentUserStorage.childStorages! as storage>
                     <tr>
                         <#--Подразделение-->
                         <td>
-                            <#if storage.childUserStorages?? && storage.childUserStorages?size != 0>
+                            <#if storage.isParentStorage()>
                                 <a href="/userStorage/${storage.id}">${storage.userStorageName}</a>
                             <#else>
                                 ${storage.userStorageName}
@@ -66,14 +66,15 @@
                         </td>
                         <#--Администратор-->
                         <td>
-                            <#if
-                            storage.administrator??>${storage.administrator.username}
+                            <#if storage.administrator??>${storage.administrator.username}
                             </#if>
                         </td>
                         <#--Количество сотрудников-->
                         <td>
-                            <#if storage??>
-                                <a href="/users/storage/${storage.id}">${storage.getAllNestedStorageUsers(storage)?size}</a>
+                            <#if storage.storageUsers??>
+                                <#if storage.storageUsers?size == 0>0
+                                    <#else ><a href="/users/storage/${storage.id}">${storage.storageUsers?size}</a>
+                                </#if>
                             </#if>
                         </td>
                         <#--Средний балл-->
@@ -142,8 +143,9 @@
                                                    name="userStorageName"
                                                    id="userStorageName"
                                                    placeholder="Введите новое название"
-                                                   value="<#if updatedUserStorage??>${updatedUserStorage.userStorageName}</#if>"
-<#--                                                   value="<#if storage??>${storage.userStorageName}</#if>"-->
+                                                   value="<#if updatedUserStorage??>${updatedUserStorage.userStorageName}
+                                                            <#else>${storage.userStorageName}
+                                                        </#if>"
                                                    style="width: 100%;"/>
                                             <#if userStorageNameUpdateError??>
                                                 <div class="invalid-feedback">
@@ -160,22 +162,15 @@
                                                     aria-label="Выберите организацию"
                                                     style="width: 100%;">
                                                 <option selected>
-                                                    <#if storage.parentUserStorage??>
-                                                        ${storage.getParentUserStorage().userStorageName}
-                                                    </#if>
+                                                    <#if parentUserStorageUpdated??>${parentUserStorageUpdated.userStorageName}</#if>
                                                 </option>
-                                                <#list userStorages! as userStorage>
+                                                <#list parentUserStorage.childStorages! as userStorage>
                                                     <#if storage.getId() != userStorage.getId()>
                                                         <option value="${userStorage.userStorageName}"
                                                                 name="userStorageParentName_Selected">${userStorage.userStorageName}</option>
                                                     </#if>
                                                 </#list>
                                             </select>
-                                            <#if userStorageParentName_SelectedError??>
-                                                <div class="invalid-feedback">
-                                                    ${userStorageParentNameSelectedError}
-                                                </div>
-                                            </#if>
                                         </div>
                                         <div class="form-group row my-2 px-3">
                                             <label for="storageDescription" class="col-form-label">Описание</label>
@@ -237,7 +232,7 @@
                                     ${parentUserStorage.userStorageName}
                                 </#if>
                             </option>
-                            <#list userStorages! as userStorage>
+                            <#list parentUserStorage.childStorages! as userStorage>
                                 <option name="userStorageParentNameSelected"
                                         value="${userStorage.userStorageName}">${userStorage.userStorageName}</option>
                             </#list>

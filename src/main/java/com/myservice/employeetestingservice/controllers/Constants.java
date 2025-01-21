@@ -6,6 +6,9 @@ public class Constants {
 
     public static final String USER_STORAGES_LIST = "userStoragesList";
     public static final String PARENT_USER_STORAGE = "parentUserStorage";
+    public static final String PARENT_USER_STORAGE_FOR_UPDATED = "parentUserStorageUpdated";
+    public static final String USER_STORAGE = "userStorage";
+    public static final String UPDATED_USER_STORAGE = "updatedUserStorage";
     public static final String ALL_PARENT_STORAGES_NAMES = "allParentStoragesNames";
     public static final String USER_STORAGES = "userStorages";
 
