@@ -46,7 +46,7 @@ public class ServiceWorkingUserAndStorage {
         }
     }
 
-    private void updateUserForStorage(UserStorage userStorage, User user, User userAuthentication) throws JsonProcessingException {
+    public void updateUserForStorage(UserStorage userStorage, User user, User userAuthentication) throws JsonProcessingException {
         if (userAuthentication != null && !userAuthentication.equals(user)) {
             boolean isUpdated = false;
             List<Role> roles;
@@ -110,6 +110,8 @@ public class ServiceWorkingUserAndStorage {
                     logService.writeUserLog(user, "Пользователь добавил себя в хранилище - \"" + userStorage.getUserStorageName() + "\"");
                 }
                 userStorageRepository.save(userStorage);
+                user.setUserStorage(userStorage);
+                userRepository.save(user);
             }
         }
     }

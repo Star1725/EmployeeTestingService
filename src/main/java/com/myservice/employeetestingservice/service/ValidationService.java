@@ -1,8 +1,12 @@
 package com.myservice.employeetestingservice.service;
 
+import com.myservice.employeetestingservice.controllers.Constants;
+import com.myservice.employeetestingservice.domain.User;
 import com.myservice.employeetestingservice.dto.UserStorageDTO;
+import com.myservice.employeetestingservice.repository.UserRepository;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.ui.Model;
 
@@ -12,7 +16,8 @@ import static com.myservice.employeetestingservice.controllers.Constants.*;
 @Data
 @RequiredArgsConstructor
 public class ValidationService {
-
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     //@param isDuplicate - для валидации дублирования имени в рамках родительского хранилища
     public boolean isNotValidateStorageName(UserStorageDTO userStorageDTO, UserStorageDTO parentUserStorageDTO, Model model, boolean isDuplicate) {
@@ -49,6 +54,29 @@ public class ValidationService {
             return true;
         }
         return false;
+    }
+
+    public void validateUserProfile(Model model, String usernameNew, String passwordOld, String passwordNew, String passwordNew2, User userFromDb) {
+        if (usernameNew == null || usernameNew.isEmpty()) {
+            model.addAttribute("usernameNewError", "Username cannot be empty!");
+        } else if (isUsernameTaken(usernameNew, userFromDb)) {
+            model.addAttribute("usernameNewError", Constants.USERNAME_FIND_ERROR);
+        }
+
+        if (passwordNew != null && !passwordNew.isEmpty() && !passwordNew.equals(passwordNew2)) {
+            model.addAttribute("passwordNewError", Constants.PASSWORD_MISMATCH);
+        } else if (!passwordOld.isEmpty() && !checkOldPassword(passwordOld, userFromDb)) {
+            model.addAttribute("passwordOldError", "Incorrect old password.");
+        }
+    }
+
+    private boolean isUsernameTaken(String usernameNew, User userFromDb) {
+        User existingUser = userRepository.findByUsername(usernameNew);
+        return existingUser != null && !existingUser.getUsername().equals(userFromDb.getUsername());
+    }
+
+    private boolean checkOldPassword(String passwordOld, User userFromDb) {
+        return passwordEncoder.matches(passwordOld, userFromDb.getPassword());
     }
 }
 

@@ -5,11 +5,15 @@ import com.myservice.employeetestingservice.controllers.Constants;
 import com.myservice.employeetestingservice.domain.*;
 import com.myservice.employeetestingservice.dto.UserDTO;
 import com.myservice.employeetestingservice.dto.UserStorageDTO;
+import com.myservice.employeetestingservice.exception.AccessDeniedException;
+import com.myservice.employeetestingservice.exception.AuthenticationDataRetrievalException;
+import com.myservice.employeetestingservice.exception.UserNotFoundException;
 import com.myservice.employeetestingservice.mapper.UserMapper;
 import com.myservice.employeetestingservice.mapper.UserStorageMapper;
 import com.myservice.employeetestingservice.repository.UserRepository;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.ui.Model;
@@ -22,22 +26,32 @@ import static com.myservice.employeetestingservice.controllers.Constants.PASSWOR
 @Service
 @Data
 @RequiredArgsConstructor
-public class UserService{
+public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final LogService logService;
     private final UserMapper userMapper;
     private final UserStorageMapper userStorageMapper;
     private final ServiceWorkingUserAndStorage serviceWorkingUserAndStorage;
+    private final ValidationService validationService;
 
-//Удаление пользователя-------------------------------------------------------------------------------------------------
+    /**
+     * Удаляет пользователя из базы данных.
+     *
+     * @param id                 ID пользователя для удаления
+     * @param userAuthentication текущий аутентифицированный пользователь
+     * @throws JsonProcessingException если возникает ошибка при записи лога
+     * @throws UserNotFoundException   если пользователь с указанным ID не найден
+     */
     public void deleteUser(long id, User userAuthentication) throws JsonProcessingException {
-        User userFromDB = userRepository.getReferenceById((long) id);
-        logService.writeUserLog(userAuthentication, "администратор удалил пользователя - \"" + userFromDB.getUsername() + "\"");
-        userRepository.deleteById(id);
+        User userFromDb = userRepository.findById(id)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
+        logService.writeUserLog(userAuthentication, "администратор удалил пользователя - \"" + userFromDb.getUsername() + "\"");
+        userRepository.delete(userFromDb);
     }
 
 // Получение списка пользователей в зависимости от роли администратора--------------------------------------------------
+
     /**
      * Получает список пользователей, доступных для текущего администратора.
      * Если пользователь имеет роль MAIN_ADMIN, возвращаются все пользователи.
@@ -47,31 +61,44 @@ public class UserService{
      * @return список пользователей в формате DTO, доступных для текущего администратора
      */
     public List<UserDTO> getAllUsersForRoleAdmin(User adminUser) {
-        List<User> filteredSortedUsers;
+        User fullAdminUser = getUserByIdWithUserStorage(adminUser);
 
-        // Получаем полную информацию о текущем администраторе, включая его хранилище
-        User fullUserAuthentication = getUserByIdWithUserStorage(adminUser);
+        List<User> users = fullAdminUser.isMainAdmin() ?
+                findAllUsersSorted() :
+                getUsersForStorage(fullAdminUser.getUserStorage());
 
-        // Если пользователь является MAIN_ADMIN, возвращаем всех пользователей
-        if (fullUserAuthentication.isMainAdmin()) {
-            List<User> userList = findAll(); // Получаем всех пользователей из базы данных
-            filteredSortedUsers = sortingListByRoleByName(userList); // Сортируем пользователей по ролям и имени
-        } else {
-            // Если пользователь является ADMIN, возвращаем пользователей его хранилища
-            UserStorage userStorageDb = fullUserAuthentication.getUserStorage();
-            // Получаем пользователей из текущего и вложенных хранилищ, связанных с администратором
-            filteredSortedUsers = sortingListByRoleByName(userStorageDb.getAllNestedStorageUsers(userStorageDb));
-        }
-
-        // Преобразуем список пользователей в DTO и возвращаем
-        return userMapper.convertToDTOList(filteredSortedUsers);
+        return userMapper.convertToDTOList(users);
     }
 
     /**
-     * Получает всех пользователей из базы данных.
+     * Получает всех пользователей из базы данных и сортирует их.
+     * Сортировка выполняется сначала по роли, затем по имени пользователя.
      *
-     * @return список всех пользователей
+     * @return отсортированный список всех пользователей
      */
+    private List<User> findAllUsersSorted() {
+        return userRepository.findAll().stream()
+                .sorted(Comparator.comparing((User user) -> user.getRoles().contains(Role.MAIN_ADMIN) ? 0 :
+                                user.getRoles().contains(Role.ADMIN) ? 1 : 2)
+                        .thenComparing(User::getUsername))
+                .toList();
+    }
+
+    /**
+     * Получает пользователей для указанного хранилища.
+     * Включает пользователей текущего хранилища и вложенных хранилищ, сортирует их по роли и имени.
+     *
+     * @param storage хранилище, для которого необходимо получить пользователей
+     * @return отсортированный список пользователей хранилища
+     */
+    private List<User> getUsersForStorage(UserStorage storage) {
+        return storage.getAllNestedStorageUsers(storage).stream()
+                .sorted(Comparator.comparing((User user) -> user.getRoles().contains(Role.MAIN_ADMIN) ? 0 :
+                                user.getRoles().contains(Role.ADMIN) ? 1 : 2)
+                        .thenComparing(User::getUsername))
+                .toList();
+    }
+
     public List<User> findAll() {
         return userRepository.findAll();
     }
@@ -103,6 +130,7 @@ public class UserService{
     }
 
 // получение списка пользователей для конкретного хранилища ------------------------------------------------------------
+
     /**
      * Получает список пользователей, связанных с указанным хранилищем.
      * Включает пользователей из текущего хранилища и всех вложенных хранилищ.
@@ -120,40 +148,34 @@ public class UserService{
     }
 
 // получение профиля пользователя --------------------------------------------------------------------------------------
+
     /**
      * Получает данные профиля пользователя и проверяет доступ текущего пользователя к этим данным.
      * Если доступ разрешён, данные профиля добавляются в модель и возвращается имя страницы профиля.
      *
      * @param userAuthentication текущий аутентифицированный пользователь
-     * @param id ID пользователя, профиль которого необходимо просмотреть
-     * @param model модель для передачи данных в представление
+     * @param id                 ID пользователя, профиль которого необходимо просмотреть
+     * @param model              модель для передачи данных в представление
      * @return имя страницы профиля
      * @throws IllegalArgumentException если пользователь с указанным ID не найден
-     * @throws IllegalStateException если информация о текущем пользователе не получена
-     * @throws SecurityException если доступ к профилю пользователя запрещён
+     * @throws IllegalStateException    если информация о текущем пользователе не получена
+     * @throws SecurityException        если доступ к профилю пользователя запрещён
      */
     public String getUserProfile(User userAuthentication, Optional<Long> id, Model model) {
-        // Получаем пользователя из базы данных по ID
-        // Если пользователь не найден, выбрасывается IllegalArgumentException
         User userFromDb = id.map(this::getUserById)
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден."));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
 
-        // Получение полной информации о текущем аутентифицированном пользователе, включая данные о хранилище
-        // Если информация не получена, выбрасывается IllegalStateException с соответствующим сообщением
-        User fullUserAuthentication = Optional.ofNullable(getUserByIdWithUserStorage(userAuthentication))
-                .orElseThrow(() -> new IllegalStateException("Ошибка получения данных аутентификации."));
+        User fullAuthUser = getUserByIdWithUserStorage(userAuthentication);
 
-        // Проверка прав доступа текущего пользователя к профилю пользователя из базы данных
-        // Если доступ запрещён, выбрасывается SecurityException
-        if (!hasAccessToProfile(fullUserAuthentication, userFromDb)) {
-            throw new SecurityException("Доступ к профилю пользователя запрещен.");
+        if (!hasAccessToProfile(fullAuthUser, userFromDb)) {
+            throw new SecurityException("Access denied to user profile");
         }
 
         // Преобразование пользователя из базы данных в DTO-объект для представления
         UserDTO userDTO = userMapper.convertToDTO(userFromDb);
 
         // Преобразование хранилища пользователя в DTO-объект для представления
-        UserStorageDTO userStorageDTO = userStorageMapper.convertToDTOForProfilePage(userFromDb.getUserStorage(), fullUserAuthentication);
+        UserStorageDTO userStorageDTO = userStorageMapper.convertToDTOForProfilePage(userFromDb.getUserStorage(), fullAuthUser);
 
         // Добавление данных пользователя и хранилища в модель и возврат имени страницы профиля
         return setModelFromProfileUser(userDTO, userStorageDTO, model);
@@ -165,51 +187,23 @@ public class UserService{
      * - Пользователь просматривает собственный профиль.
      * - Пользователь является MainAdmin.
      * - Пользователь является Admin и имеет доступ к профилю целевого пользователя.
+     *
      * @param currentUser текущий пользователь
-     * @param targetUser целевой пользователь
+     * @param targetUser  целевой пользователь
      * @return true, если доступ разрешён; false, если запрещён
      */
     private boolean hasAccessToProfile(User currentUser, User targetUser) {
-        return isUserViewingOwnProfile(currentUser, targetUser)
-                || isMainAdmin(currentUser)
-                || isAdminWithAccessToUser(currentUser, targetUser);
-    }
-
-    /**
-     * Проверяет, просматривает ли пользователь свой собственный профиль.
-     * @param currentUser текущий пользователь
-     * @param targetUser целевой пользователь
-     * @return true, если текущий пользователь просматривает свой профиль; иначе false
-     */
-    private boolean isUserViewingOwnProfile(User currentUser, User targetUser) {
-        return currentUser.getId().equals(targetUser.getId());
-    }
-
-    /**
-     * Проверяет, является ли пользователь MainAdmin.
-     * @param user пользователь для проверки
-     * @return true, если пользователь имеет роль MainAdmin; иначе false
-     */
-    private boolean isMainAdmin(User user) {
-        return user.isMainAdmin();
-    }
-
-    /**
-     * Проверяет, имеет ли Admin доступ к профилю целевого пользователя.
-     * Admin не может просматривать профили MainAdmin и других Admin.
-     * @param admin пользователь с ролью Admin
-     * @param targetUser целевой пользователь
-     * @return true, если Admin имеет доступ; иначе false
-     */
-    private boolean isAdminWithAccessToUser(User admin, User targetUser) {
-        return admin.isAdmin() && !targetUser.getRoles().contains(Role.MAIN_ADMIN) && !targetUser.getRoles().contains(Role.ADMIN);
+        return currentUser.getId().equals(targetUser.getId()) ||
+                currentUser.isMainAdmin() ||
+                (currentUser.isAdmin() && !targetUser.isAdmin() && !targetUser.isMainAdmin());
     }
 
     /**
      * Устанавливает данные профиля пользователя и его хранилища в модель.
-     * @param userDTO DTO-объект пользователя
+     *
+     * @param userDTO        DTO-объект пользователя
      * @param userStorageDTO DTO-объект хранилища пользователя
-     * @param model модель для передачи данных в представление
+     * @param model          модель для передачи данных в представление
      * @return имя страницы профиля (PROFILE_PAGE)
      */
     private String setModelFromProfileUser(UserDTO userDTO, UserStorageDTO userStorageDTO, Model model) {
@@ -226,23 +220,23 @@ public class UserService{
         return Constants.PROFILE_PAGE;
     }
 
-//обновления профиля пользователя --------------------------------------------------------------------------------------
     /**
-     * Обновляет профиль пользователя, включая его имя, пароль и связанное хранилище.
-     * Проверяет права доступа и валидность введённых данных. Если данные некорректны, возвращает страницу профиля с ошибками.
+     * Обновляет профиль пользователя, включая имя, пароль и данные хранилища.
+     * Проверяет входные данные на валидность, обновляет связанные сущности и записывает изменения в базу данных.
      *
-     * @param model модель для передачи данных в представление
-     * @param usernameNew новое имя пользователя
-     * @param passwordOld старый пароль пользователя
-     * @param userAuthentication текущий аутентифицированный пользователь
-     * @param primaryParentStorageNameSelected имя выбранного хранилища
-     * @param storageIdSelected ID выбранного хранилища
-     * @param passwordNew новый пароль
-     * @param passwordNew2 подтверждение нового пароля
-     * @param id ID пользователя, профиль которого обновляется
-     * @param form данные, отправленные через форму
-     * @return имя страницы профиля или перенаправление на другую страницу
-     * @throws JsonProcessingException если возникает ошибка обработки JSON
+     * @param model                            объект модели для передачи данных в представление
+     * @param usernameNew                      новое имя пользователя
+     * @param passwordOld                      старый пароль пользователя
+     * @param userAuthentication               текущий аутентифицированный пользователь
+     * @param primaryParentStorageNameSelected имя родительского хранилища
+     * @param storageIdSelected                ID нового хранилища пользователя
+     * @param passwordNew                      новый пароль пользователя
+     * @param passwordNew2                     подтверждение нового пароля
+     * @param id                               ID пользователя, профиль которого обновляется
+     * @param form                             форма с дополнительными параметрами обновления
+     * @return имя страницы профиля или редирект на другую страницу
+     * @throws JsonProcessingException если возникает ошибка при записи лога
+     * @throws UserNotFoundException   если пользователь с указанным ID не найден
      */
     public String updateUserProfile(
             Model model,
@@ -256,231 +250,142 @@ public class UserService{
             Optional<Long> id,
             Map<String, String> form) throws JsonProcessingException {
 
-        // Получаем пользователя из базы данных по ID
-        // Если пользователь не найден, выбрасывается IllegalArgumentException
         User userFromDb = id.map(this::getUserById)
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден."));
+                .orElseThrow(() -> new UserNotFoundException("User not found."));
 
-        // Получаем полные данные о текущем пользователе, включая информацию о хранилище
-        // Если данные не получены, выбрасывается IllegalStateException
-        User fullUserAuthentication = Optional.ofNullable(getUserByIdWithUserStorage(userAuthentication))
-                .orElseThrow(() -> new IllegalStateException("Ошибка получения данных аутентификации."));
+        User fullAuthUser = getUserByIdWithUserStorage(userAuthentication);
 
-        // Проверяем валидность нового имени пользователя
-        // Если имя некорректно, добавляем соответствующие ошибки в модель
-        validateUsername(usernameNew, userFromDb, model);
+        // Валидация
+        validationService.validateUserProfile(model, usernameNew, passwordOld, passwordNew, passwordNew2, userFromDb);
 
-        // Проверяем необходимость изменения пароля
-        // Если пароль некорректен или подтверждение не совпадает, добавляем ошибки в модель
-        boolean isChangePassword = validatePassword(passwordOld, passwordNew, passwordNew2, userFromDb, model);
-
-        // Определяем новое хранилище пользователя на основе выбранного ID или имени
-        UserStorage newUserStorage = resolveUserStorage(primaryParentStorageNameSelected, storageIdSelected);
-
-        // Добавляем необходимые данные в модель
-        addProfileAttributesToModel(model, userFromDb, usernameNew, newUserStorage, fullUserAuthentication);
-
-        // Если в модели присутствуют ошибки (например, валидатор добавил их), возвращаем страницу профиля
         if (model.asMap().keySet().stream().anyMatch(key -> key.contains("Error"))) {
             return Constants.PROFILE_PAGE;
         }
 
-        // Обновляем данные пользователя и его связанное хранилище
-        updateUserAndStorage(userFromDb, newUserStorage, form, fullUserAuthentication);
+        // Определение нового хранилища
+        UserStorage newUserStorage = resolveUserStorage(primaryParentStorageNameSelected, storageIdSelected);
 
-        ///добавляем в модель сообщение об обновлении данных
-        model.addAttribute("message", "Данные успешно обновлены!");
+        // Обновление пользователя и хранилища
+        updateUserAndRoles(userFromDb, newUserStorage, form, fullAuthUser);
 
-        // Если пароль был изменён, перенаправляем пользователя на страницу выхода
-        if (isChangePassword) {
+        // Конвертируем пользователя в DTO и добавляем в модель
+        model.addAttribute("userDTO", userMapper.convertToDTO(userFromDb));
+        model.addAttribute("userStorageDTO", userStorageMapper.convertToDTOForProfilePage(newUserStorage, fullAuthUser));
+        model.addAttribute("message", "Profile updated successfully!");
+
+        if (passwordNew != null && !passwordNew.isEmpty()) {
             return "redirect:/users/logout";
         }
 
-        // Если текущий пользователь обновляет свои данные, остаёмся на странице профиля
-        // В остальных случаях перенаправляем на список пользователей
-        return fullUserAuthentication.getId().equals(userFromDb.getId()) ? Constants.PROFILE_PAGE : "redirect:/users";
+        return fullAuthUser.getId().equals(userFromDb.getId()) ? Constants.PROFILE_PAGE : "redirect:/users";
     }
 
     /**
-     * Проверяет валидность нового имени пользователя и добавляет ошибки в модель, если они есть.
-     * @param usernameNew новое имя пользователя
-     * @param userFromDb текущий пользователь из базы данных
-     * @param model модель для добавления ошибок
-     */
-    private void validateUsername(String usernameNew, User userFromDb, Model model) {
-        if (usernameNew == null || usernameNew.isEmpty()) {
-            model.addAttribute("usernameNewError", "Поле не может быть пустым!");
-        } else if (loadUserByUsernameForUpdateUser(usernameNew) && !usernameNew.equals(userFromDb.getUsername())) {
-            model.addAttribute("usernameNewError", Constants.USERNAME_FIND_ERROR);
-        }
-    }
-
-    public boolean loadUserByUsernameForUpdateUser(String usernameNew) {
-        User userFromDb = userRepository.findByUsername(usernameNew);
-        return userFromDb != null;
-    }
-
-    /**
-     * Проверяет валидность нового пароля и добавляет ошибки в модель, если они есть.
-     * @param passwordOld старый пароль
-     * @param passwordNew новый пароль
-     * @param passwordNew2 подтверждение нового пароля
-     * @param userFromDb текущий пользователь из базы данных
-     * @param model модель для добавления ошибок
-     * @return true, если пароль успешно прошёл проверку, иначе false
-     */
-    private boolean validatePassword(String passwordOld, String passwordNew, String passwordNew2, User userFromDb, Model model) {
-        if (passwordNew == null || passwordNew.isEmpty() || passwordNew2 == null || passwordNew2.isEmpty()) {
-            return false; // Пароль не изменяется
-        }
-        if (!passwordNew.equals(passwordNew2)) {
-            model.addAttribute("passwordNewError", Constants.PASSWORD_MISMATCH);
-            model.addAttribute("passwordNew2Error", Constants.PASSWORD_MISMATCH);
-            return false;
-        }
-        if (!passwordOld.isEmpty() && !checkOldPassword(passwordOld, userFromDb)) {
-            model.addAttribute("passwordOldError", "Вы ввели неправильный пароль");
-            return false;
-        }
-        return true;
-    }
-
-    public boolean checkOldPassword(String passwordOld, User userFromDb) {
-        return passwordEncoder.matches(passwordOld, userFromDb.getPassword());
-    }
-
-    /**
-     * Определяет новое хранилище пользователя, используя ID или имя хранилища.
-     * @param primaryParentStorageNameSelected имя хранилища, выбранного пользователем
-     * @param storageIdSelected ID хранилища, выбранного пользователем
-     * @return объект UserStorage, представляющий новое хранилище
-     */
-    private UserStorage resolveUserStorage(String primaryParentStorageNameSelected, String storageIdSelected) {
-        return Optional.ofNullable(storageIdSelected)
-                .filter(id -> !id.isEmpty()) // Проверяем, что ID не пустой
-                .map(Integer::parseInt) // Конвертируем ID из строки в Integer
-                .map(serviceWorkingUserAndStorage::getUserStorageById) // Получаем хранилище по ID
-                .orElseGet(() -> serviceWorkingUserAndStorage.getUserStorageByUsersStorageName(primaryParentStorageNameSelected)); // Иначе получаем по имени
-    }
-
-    /**
-     * Добавляет необходимые атрибуты в модель для корректного отображения страницы профиля.
+     * Обновляет роли, имя и хранилище пользователя.
+     * Выполняет проверку данных, переданных через форму, обновляет сущности и сохраняет изменения в базу данных.
      *
-     * @param model модель для передачи данных в представление
-     * @param userFromDb текущий пользователь из базы данных
-     * @param usernameNew новое имя пользователя
-     * @param newUserStorage новое хранилище пользователя
-     * @param fullUserAuthentication текущий аутентифицированный пользователь с полной информацией
+     * @param userFromDb пользователь, данные которого обновляются
+     * @param newStorage новое хранилище пользователя
+     * @param form       данные формы с параметрами обновления
+     * @param authUser   текущий аутентифицированный пользователь, выполняющий операцию
+     * @throws JsonProcessingException если возникает ошибка при записи лога
      */
-    private void addProfileAttributesToModel(Model model, User userFromDb, String usernameNew, UserStorage newUserStorage, User fullUserAuthentication) {
-        // Добавляем роли, уровни доступа и специальные права
-        if (userFromDb.isAdmin()) {
-            model.addAttribute("roles", Role.values());
-            model.addAttribute("accessLevels", AccessLevel.values());
-            model.addAttribute("specAccesses", SpecAccess.values());
+    private void updateUserAndRoles(User userFromDb, UserStorage newStorage, Map<String, String> form, User authUser)
+            throws JsonProcessingException {
+        if (form.containsKey("usernameNew")) {
+            userFromDb.setUsername(form.get("usernameNew"));
         }
 
-        // Конвертируем пользователя в DTO и добавляем в модель
-        UserDTO userDTO = userMapper.convertToDTO(userFromDb);
-        userDTO.setUsername(usernameNew);
-        model.addAttribute("userDTO", userDTO);
+        updateRoles(userFromDb, form);
 
-        // Конвертируем хранилище в DTO и добавляем в модель
-        UserStorageDTO userStorageDTO = userStorageMapper.convertToDTOForProfilePage(newUserStorage, fullUserAuthentication);
-        model.addAttribute("userStorageDTO", userStorageDTO);
+        if (form.containsKey(Constants.PASSWORD_NEW)) {
+            userFromDb.setPassword(passwordEncoder.encode(form.get(Constants.PASSWORD_NEW)));
+        }
+
+        if (!Objects.equals(userFromDb.getUserStorage(), newStorage)) {
+            serviceWorkingUserAndStorage.updateUserForStorage(userFromDb.getUserStorage(), newStorage, authUser, userFromDb);
+        } else {
+            serviceWorkingUserAndStorage.updateUserForStorage(newStorage, authUser, userFromDb);
+        }
+
+        userRepository.save(userFromDb);
+        logService.writeUserLog(authUser, "Updated user: " + userFromDb.getUsername());
     }
 
     /**
-     * Обновляет данные пользователя и связывает их с новым хранилищем.
-     * @param userFromDb текущий пользователь из базы данных
-     * @param newUserStorage новое хранилище
-     * @param form данные формы, отправленные пользователем
-     * @param fullUserAuthentication текущий пользователь с полной информацией
-     * @throws JsonProcessingException если возникает ошибка обработки JSON
+     * Обновляет роли пользователя на основе переданных данных.
+     * Проверяет данные формы, сопоставляет их с доступными ролями, уровнями доступа и специальными правами.
+     *
+     * @param user пользователь, роли которого обновляются
+     * @param form данные формы с параметрами обновления
      */
-    private void updateUserAndStorage(User userFromDb, UserStorage newUserStorage, Map<String, String> form, User fullUserAuthentication) throws JsonProcessingException {
-        updatePasswordAndAccess(userFromDb, form, fullUserAuthentication);
-        serviceWorkingUserAndStorage.updateUserForStorage(userFromDb.getUserStorage(), newUserStorage, fullUserAuthentication, userFromDb);
-        userFromDb.setUserStorage(newUserStorage);
-        userRepository.save(userFromDb);
+    private void updateRoles(User user, Map<String, String> form) {
+        updateAttributes(user.getRoles(), Role.values(), form, Role.class);
+        updateAttributes(user.getAccessLevels(), AccessLevel.values(), form, AccessLevel.class);
+        updateAttributes(user.getSpecAccesses(), SpecAccess.values(), form, SpecAccess.class);
     }
 
-    public void updatePasswordAndAccess(User userFromDb, Map<String, String> form, User userAuthentication) throws JsonProcessingException {
-        userFromDb.setUsername(form.get("usernameNew"));
-        //если данные пользователя обновляет administrator, то...
-        if (userAuthentication != null && !userAuthentication.getId().equals(userFromDb.getId())) {
-            //получение списка всех ролей, из которых потом проверить какие установлены данному пользователю
-            //для этого переводим Enum в строковый вид
-            Set<String> roles = Arrays.stream(Role.values())
-                    .map(Role::name)
-                    .collect(Collectors.toSet());
-            updateRoles(userFromDb.getRoles(), roles, form);
-            //аналогично поступаем с AccessLevel
-            Set<String> accessLevels = Arrays.stream(AccessLevel.values())
-                    .map(AccessLevel::name)
-                    .collect(Collectors.toSet());
-            updateAccessLevels(userFromDb.getAccessLevels(), accessLevels, form);
-            //аналогично поступаем со SpecAccess
-            Set<String> specAccessLevels = Arrays.stream(SpecAccess.values())
-                    .map(SpecAccess::name)
-                    .collect(Collectors.toSet());
-            updateSpecAccessLevels(userFromDb.getSpecAccesses(), specAccessLevels, form);
-            logService.writeUserLog(userAuthentication, "администратор изменил данные пользователя - \"" + userFromDb.getUsername()+ "\"");
-        }
-        if (form.get(PASSWORD_NEW) != null && !form.get(PASSWORD_NEW).isEmpty()) {
-            userFromDb.setPassword(passwordEncoder.encode(form.get(PASSWORD_NEW)));
-        }
-        if (userAuthentication != null && userAuthentication.getId().equals(userFromDb.getId())){
-            logService.writeUserLog(userFromDb, "пользователь изменил свои данные");
-        }
-    }
-
-    private void updateRoles(List<Role> roleList, Set<String> stringSet, Map<String, String> form) {
-        //очищаем роли пользователя, чтобы назначить новые, взятые из переданной формы
-        if (roleList != null){
-            roleList.clear();
+    /**
+     * Обобщённо обновляет атрибуты пользователя, такие как роли, уровни доступа и специальные права.
+     * Сравнивает значения из формы с допустимыми перечислениями и обновляет соответствующий список атрибутов.
+     *
+     * @param attributes список атрибутов, который необходимо обновить
+     * @param allValues все возможные значения атрибутов
+     * @param form данные формы с параметрами обновления
+     * @param enumType тип перечисления, представляющего атрибуты
+     * @param <T> тип перечисления
+     */
+    private <T extends Enum<T>> void updateAttributes(List<T> attributes, T[] allValues, Map<String, String> form, Class<T> enumType) {
+        if (attributes != null) {
+            attributes.clear();
         } else {
-            roleList = new LinkedList<>();
+            attributes = new LinkedList<>();
         }
-        //теперь проверяем какие роли содержит наша форма - Map<String, String> form
+
+        Set<String> validKeys = Arrays.stream(allValues).map(Enum::name).collect(Collectors.toSet());
+
         for (String key : form.keySet()) {
-            if (stringSet.contains(key)) {
-                roleList.add(Role.valueOf(key));
+            if (validKeys.contains(key)) {
+                attributes.add(Enum.valueOf(enumType, key));
             }
         }
     }
 
-    private void updateSpecAccessLevels(List<SpecAccess> accessLevelList, Set<String> stringSet, Map<String, String> form) {
-        if (accessLevelList != null){
-            accessLevelList.clear();
-        } else {
-            accessLevelList = new LinkedList<>();
-        }
-        for (String key : form.keySet()) {
-            if (stringSet.contains(key)) {
-                accessLevelList.add(SpecAccess.valueOf(key));
-            }
-        }
+    /**
+     * Определяет хранилище пользователя по его имени или ID.
+     *
+     * @param parentName имя родительского хранилища
+     * @param storageId ID хранилища
+     * @return найденное хранилище пользователя
+     */
+    private UserStorage resolveUserStorage(String parentName, String storageId) {
+        return Optional.ofNullable(storageId)
+                .filter(id -> !id.isEmpty())
+                .map(Long::parseLong)
+                .map(serviceWorkingUserAndStorage::getUserStorageById)
+                .orElseGet(() -> serviceWorkingUserAndStorage.getUserStorageByUsersStorageName(parentName));
     }
 
-    private void updateAccessLevels(List<AccessLevel> accessLevelList, Set<String> stringSet, Map<String, String> form) {
-        if (accessLevelList != null){
-            accessLevelList.clear();
-        } else {
-            accessLevelList = new LinkedList<>();
-        }
-        for (String key : form.keySet()) {
-            if (stringSet.contains(key)) {
-                accessLevelList.add(AccessLevel.valueOf(key));
-            }
-        }
-    }
-
+    /**
+     * Получает пользователя по его ID.
+     *
+     * @param id уникальный идентификатор пользователя
+     * @return пользователь, найденный по ID
+     * @throws UserNotFoundException если пользователь не найден
+     */
     public User getUserById(long id) {
-        return userRepository.getReferenceById(id);
+        return userRepository.findById(id).orElseThrow(() -> new UserNotFoundException("User not found"));
     }
 
-    public User getUserByIdWithUserStorage(User user){
-        return userRepository.findByIdWithUserStorage(user.getId()); // Загрузка с использованием JOIN FETCH
+    /**
+     * Получает пользователя вместе с данными о его хранилище.
+     *
+     * @param user текущий пользователь
+     * @return пользователь с полной информацией о хранилище
+     * @throws AuthenticationDataRetrievalException если данные пользователя не получены
+     */
+    public User getUserByIdWithUserStorage(User user) {
+        return Optional.ofNullable(userRepository.findByIdWithUserStorage(user.getId()))
+                .orElseThrow(() -> new AuthenticationDataRetrievalException("Authentication data retrieval error"));
     }
 }
